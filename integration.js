@@ -24,7 +24,7 @@
   const taskTypeFromApi = {other:'Tarefa',call:'Ligação',email:'E-mail',meeting:'Reunião',follow_up:'Retorno'};
   const priorityToApi = {'Baixa':'low','Média':'medium','Alta':'high'};
   const priorityFromApi = {low:'Baixa',medium:'Média',high:'Alta'};
-  const stageAliases = {'Prospecção':'Novo lead','Novo lead':'Novo lead','Qualificação':'Qualificação','Proposta':'Proposta','Negociação':'Negociação','Ganho':'Ganho','Perdido':'Perdido'};
+  const stageAliases = {}; // Os nomes das colunas são personalizados pelo administrador e permanecem fiéis ao banco.
 
   function emptyState() { return {contacts:[],deals:[],tasks:[],activities:[],pipelines:[],pipelineStages:[],users:[]}; }
   window.loadState = function () { return emptyState(); };
@@ -160,6 +160,18 @@
           .is('deleted_at',null).order('created_at',{ascending:false}).limit(500));
         return {data:(data||[]).map(r=>({...r,contact_name:r.contact?.name||'',contact_company_name:r.contact?.company_name||'',stage_name:r.stage?.name||'',is_won:r.stage?.is_won||false,is_lost:r.stage?.is_lost||false,owner_name:r.owner?.name||null}))};
       }
+      if (method === 'PATCH' && d.stage_id !== undefined && !Object.prototype.hasOwnProperty.call(d,'title')) {
+        const dealId = Number(id);
+        const current = throwIfError(await client.from('deals').select('id,pipeline_id').eq('id',dealId).is('deleted_at',null).maybeSingle());
+        if (!current) throw new Error('Oportunidade não encontrada.');
+        const pipelineId = Number(d.pipeline_id || current.pipeline_id);
+        const stageId = Number(d.stage_id);
+        const stage = throwIfError(await client.from('pipeline_stages').select('id,pipeline_id,is_won,is_lost,name').eq('id',stageId).maybeSingle());
+        if (!stage || Number(stage.pipeline_id)!==pipelineId) throw new Error('A etapa selecionada não pertence ao funil informado.');
+        const moved = throwIfError(await client.from('deals').update({stage_id:stageId,closed_at:(stage.is_won||stage.is_lost)?now:null}).eq('id',dealId).is('deleted_at',null).select('id').maybeSingle());
+        if (!moved) throw new Error('Não foi possível mover a oportunidade.');
+        return {ok:true,stage_name:stage.name,is_won:stage.is_won,is_lost:stage.is_lost};
+      }
       if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
         const pipelineId = Number(d.pipeline_id);
         const stageId = Number(d.stage_id);
@@ -235,6 +247,52 @@
       return {data:pdata||[],stages:stages||[]};
     }
 
+    if (action === 'pipeline-stages') {
+      if (method === 'POST') {
+        const name=String(d.name||'').trim();
+        const pipelineId=Number(d.pipeline_id);
+        if (!name) throw new Error('Dê um nome para a nova coluna.');
+        if (!pipelineId) throw new Error('Não encontramos o funil de vendas.');
+        const pipeline=throwIfError(await client.from('pipelines').select('id').eq('id',pipelineId).eq('is_active',true).maybeSingle());
+        if (!pipeline) throw new Error('O funil selecionado não existe ou está inativo.');
+        const last=throwIfError(await client.from('pipeline_stages').select('position').eq('pipeline_id',pipelineId).order('position',{ascending:false}).limit(1).maybeSingle());
+        const type=String(d.stage_type||'open');
+        const isWon=type==='won', isLost=type==='lost';
+        if (isWon) throwIfError(await client.from('pipeline_stages').update({is_won:false}).eq('pipeline_id',pipelineId).eq('is_won',true));
+        if (isLost) throwIfError(await client.from('pipeline_stages').update({is_lost:false}).eq('pipeline_id',pipelineId).eq('is_lost',true));
+        const payload={pipeline_id:pipelineId,name,position:Number(last?.position||0)+1,probability:Math.max(0,Math.min(100,Number(d.probability)||0)),is_won:isWon,is_lost:isLost};
+        const created=throwIfError(await client.from('pipeline_stages').insert(payload).select('*').single());
+        return {data:created,message:'Coluna criada.'};
+      }
+      if (method === 'PATCH' || method === 'PUT') {
+        const stageId=Number(id); if (!stageId) throw new Error('Coluna inválida.');
+        const existing=throwIfError(await client.from('pipeline_stages').select('id,pipeline_id').eq('id',stageId).maybeSingle());
+        if (!existing) throw new Error('Coluna não encontrada.');
+        const payload={};
+        if (d.name !== undefined) { const name=String(d.name||'').trim(); if(!name)throw new Error('O nome da coluna não pode ficar vazio.'); payload.name=name; }
+        if (d.probability !== undefined) payload.probability=Math.max(0,Math.min(100,Number(d.probability)||0));
+        if (d.stage_type !== undefined) {
+          const type=String(d.stage_type||'open');
+          payload.is_won=type==='won'; payload.is_lost=type==='lost';
+          if(payload.is_won) throwIfError(await client.from('pipeline_stages').update({is_won:false}).eq('pipeline_id',existing.pipeline_id).eq('is_won',true).neq('id',stageId));
+          if(payload.is_lost) throwIfError(await client.from('pipeline_stages').update({is_lost:false}).eq('pipeline_id',existing.pipeline_id).eq('is_lost',true).neq('id',stageId));
+        }
+        if(!Object.keys(payload).length) throw new Error('Nenhuma alteração para salvar.');
+        const updated=throwIfError(await client.from('pipeline_stages').update(payload).eq('id',stageId).select('*').maybeSingle());
+        if(!updated) throw new Error('Não foi possível salvar a coluna. Confira se você é administrador.');
+        return {data:updated,message:'Coluna atualizada.'};
+      }
+      if (method === 'DELETE') {
+        const stageId=Number(id); if(!stageId) throw new Error('Coluna inválida.');
+        const usage=await client.from('deals').select('id',{count:'exact',head:true}).eq('stage_id',stageId).is('deleted_at',null);
+        if(usage.error) throw usage.error;
+        if(Number(usage.count||0)>0) throw new Error('Esta coluna tem oportunidades. Mova os cards para outras colunas antes de excluí-la.');
+        const deleted=throwIfError(await client.from('pipeline_stages').delete().eq('id',stageId).select('id').maybeSingle());
+        if(!deleted) throw new Error('Não foi possível excluir a coluna. Confira se você é administrador.');
+        return {ok:true};
+      }
+    }
+
     if (action === 'users') {
       if (method === 'GET') {
         const rows = throwIfError(await client.from('users').select('id,name,email,role,is_active,created_at').order('name'));
@@ -261,6 +319,8 @@
         const name=String(d.name||'').trim();
         if(!name) throw new Error('O nome da empresa é obrigatório.');
         const payload={id:1,name,email:d.email||null,phone:d.phone||null,currency:String(d.currency||'BRL').slice(0,3),timezone:String(d.timezone||'America/Sao_Paulo').slice(0,64)};
+        if(d.theme_mode!==undefined) payload.theme_mode = d.theme_mode==='light'?'light':'dark';
+        if(d.accent_color!==undefined) { const c=String(d.accent_color||'').trim(); if(!/^#[0-9a-fA-F]{6}$/.test(c)) throw new Error('A cor deve estar no formato hexadecimal, por exemplo #788d52.'); payload.accent_color=c; }
         const data=throwIfError(await client.from('company_settings').upsert(payload,{onConflict:'id'}).select('*').single());
         return {ok:true,data};
       }
@@ -281,7 +341,7 @@
     if (!date) return null;
     return `${date} ${time || '09:00'}:00`;
   }
-  function toStageUi(name) { return stageAliases[name] || name || 'Novo lead'; }
+  function toStageUi(name) { return name || 'Novo lead'; }
   function mapContact(c) {
     return {...c, id:Number(c.id), company:c.company_name || '', owner:c.owner_name || (Number(c.owner_id) === Number(currentUser?.id) ? currentUser.name : ''), status:statusFromApi[c.status] || 'Novo lead', initials:initials(c.name)};
   }
@@ -303,6 +363,59 @@
     return d.toLocaleString('pt-BR',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'}).replace('.','');
   }
 
+  const appearancePresets = ['#788d52','#647f41','#427f73','#3e79a6','#7760a8','#b26b45','#bc6278','#414b5b','#222222'];
+  function cleanHex(value) { return /^#[0-9a-fA-F]{6}$/.test(String(value||'')) ? String(value) : '#788d52'; }
+  function applyAppearance(theme, accent, remember=true) {
+    const safeTheme = theme === 'light' ? 'light' : 'dark';
+    const safeAccent = cleanHex(accent);
+    document.body.dataset.theme = safeTheme;
+    document.documentElement.style.setProperty('--accent', safeAccent);
+    document.documentElement.style.setProperty('--accent-strong', safeAccent);
+    const hex=safeAccent.slice(1);
+    const channels=[0,2,4].map(i=>parseInt(hex.slice(i,i+2),16)/255).map(v=>v<=0.04045?v/12.92:Math.pow((v+0.055)/1.055,2.4));
+    const luminance=.2126*channels[0]+.7152*channels[1]+.0722*channels[2];
+    document.documentElement.style.setProperty('--accent-contrast', luminance>0.43?'#1b2116':'#ffffff');
+    document.documentElement.style.setProperty('--olive', safeAccent);
+    document.documentElement.style.setProperty('--olive-light', safeAccent);
+    document.documentElement.style.setProperty('--accent-soft', `${safeAccent}26`);
+    const color = safeAccent.slice(1);
+    const rgb = [0,2,4].map(i=>parseInt(color.slice(i,i+2),16)).join(',');
+    document.documentElement.style.setProperty('--accent-rgb', rgb);
+    if (remember) {
+      try { localStorage.setItem('nexo-crm-theme',safeTheme); localStorage.setItem('nexo-crm-accent',safeAccent); } catch (_) {}
+    }
+  }
+  function applySavedAppearance() {
+    let localTheme='dark',localAccent='#788d52';
+    try { localTheme=localStorage.getItem('nexo-crm-theme')||localTheme; localAccent=localStorage.getItem('nexo-crm-accent')||localAccent; } catch (_) {}
+    applyAppearance(companySettings?.theme_mode||localTheme,companySettings?.accent_color||localAccent,false);
+  }
+  window.previewNexoAppearance = function() {
+    const theme=document.getElementById('settingThemeMode')?.value || 'dark';
+    const accent=document.getElementById('settingAccentColor')?.value || '#788d52';
+    applyAppearance(theme,accent,true);
+  };
+  window.chooseNexoAccent = function(color) {
+    const input=document.getElementById('settingAccentColor');
+    if(input) input.value=cleanHex(color);
+    window.previewNexoAppearance();
+  };
+  window.saveNexoAppearance = async function() {
+    const theme=document.getElementById('settingThemeMode')?.value || 'dark';
+    const accent=cleanHex(document.getElementById('settingAccentColor')?.value || '#788d52');
+    applyAppearance(theme,accent,true);
+    if(currentUser?.role!=='admin') { showToast('A aparência foi aplicada neste navegador. Somente o administrador pode salvar para toda a empresa.'); return; }
+    const prior=companySettings||{};
+    try {
+      await api('settings','POST',{name:prior.name||document.getElementById('workspaceName')?.textContent||'Minha empresa',email:prior.email||null,phone:prior.phone||null,timezone:prior.timezone||'America/Sao_Paulo',currency:prior.currency||'BRL',theme_mode:theme,accent_color:accent});
+      await loadRemoteState(); render(); showToast('Aparência salva para a instalação.');
+    } catch(e) {
+      // Keeps the preview usable if the SQL migration has not been applied yet.
+      showToast('Aparência aplicada neste navegador, mas não foi salva no Supabase. Execute a migração de aparência no arquivo do projeto.');
+      console.warn('NEXO appearance save:',e.message);
+    }
+  };
+
   async function loadRemoteState() {
     const [contacts, deals, tasks, activities, pipeline, settings] = await Promise.all([
       api('contacts'), api('deals'), api('tasks'), api('activities'), api('pipelines'), api('settings')
@@ -312,8 +425,9 @@
     state.tasks = (tasks.data || []).map(mapTask);
     state.activities = (activities.data || []).map(mapActivity);
     state.pipelines = pipeline.data || [];
-    state.pipelineStages = (pipeline.stages || []).map(s=>({...s,id:Number(s.id),pipeline_id:Number(s.pipeline_id),name:toStageUi(s.name),position:Number(s.position),probability:Number(s.probability),is_won:Number(s.is_won),is_lost:Number(s.is_lost)}));
+    state.pipelineStages = (pipeline.stages || []).map(s=>({...s,id:Number(s.id),pipeline_id:Number(s.pipeline_id),name:String(s.name||''),position:Number(s.position),probability:Number(s.probability),is_won:Boolean(s.is_won),is_lost:Boolean(s.is_lost)}));
     companySettings = settings.data || null;
+    applySavedAppearance();
     try {
       const users = await api('users');
       state.users = (users.data || []).map(u=>({...u,id:Number(u.id),is_active:Number(u.is_active)}));
@@ -333,10 +447,10 @@
       #authGate{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(5,7,5,.91);backdrop-filter:blur(14px);color:#eef1e9}
       .auth-panel{width:min(100%,450px);background:#121510;border:1px solid #394130;border-radius:18px;padding:30px;box-shadow:0 28px 90px #0009}
       .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:27px}.auth-logo{height:46px;width:46px;border-radius:13px;display:grid;place-items:center;background:#303c24;border:1px solid #586744;color:#eaf0dd;font-weight:800;font-size:20px}
-      .auth-brand strong{display:block;font-size:19px;letter-spacing:.08em}.auth-brand span{font-size:10px;letter-spacing:.15em;color:#a4af96}
+      .auth-logo svg{width:27px;height:27px;display:block}.auth-brand strong{display:block;font-size:19px;letter-spacing:.03em;font-family:'Space Grotesk',sans-serif}.auth-brand span{font-size:10px;letter-spacing:.15em;color:#a4af96}
       .auth-panel h1{font-size:24px;letter-spacing:-.04em;margin:0 0 8px}.auth-copy{color:#a5aba0;font-size:12px;line-height:1.6;margin:0 0 22px}
       .auth-field{margin:13px 0}.auth-field label{display:block;color:#b9c0b2;font-size:11px;margin-bottom:7px}.auth-field input{width:100%;min-height:43px;border:1px solid #353b31;border-radius:9px;background:#1a1e17;color:#f6f7f3;padding:10px 12px;outline:none}.auth-field input:focus{border-color:#788b5b;box-shadow:0 0 0 3px #788b5b22}
-      .auth-submit{width:100%;min-height:44px;border:1px solid #809361;border-radius:9px;background:#667c46;color:white;font-weight:750;margin-top:8px;cursor:pointer}.auth-submit:hover{background:#758d51}.auth-error{font-size:12px;line-height:1.5;color:#f1c1b8;background:#4b2620;border:1px solid #75463e;padding:10px;border-radius:8px;margin:12px 0}.auth-foot{font-size:10px;color:#747d6b;line-height:1.6;margin-top:18px}
+      .auth-submit{width:100%;min-height:44px;border:1px solid var(--accent);border-radius:9px;background:var(--accent);color:white;font-weight:750;margin-top:8px;cursor:pointer}.auth-submit:hover{filter:brightness(1.08)}.auth-error{font-size:12px;line-height:1.5;color:#f1c1b8;background:#4b2620;border:1px solid #75463e;padding:10px;border-radius:8px;margin:12px 0}.auth-foot{font-size:10px;color:#747d6b;line-height:1.6;margin-top:18px}
       .olive-action{background:#647a43!important;border-color:#647a43!important;color:#fff!important}.olive-line{border-color:#425035!important}.profile-info strong{max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .user-table{width:100%;border-collapse:collapse}.user-table td{border-bottom:1px solid var(--line);padding:13px 10px;font-size:12px}.user-table th{padding:10px;text-align:left;font-size:10px;color:var(--muted);text-transform:uppercase}.inline-action{padding:6px 9px;border:1px solid var(--line);border-radius:7px;background:#1d2218;color:#e7ecdf;cursor:pointer;font-size:10px}
       .form-grid .field-full{grid-column:1/-1}
@@ -344,7 +458,7 @@
     `;
     document.head.appendChild(style);
     const gate=document.createElement('div'); gate.id='authGate';
-    gate.innerHTML='<section class="auth-panel" role="dialog" aria-modal="true"><div class="auth-brand"><div class="auth-logo">N.</div><div><strong>NEXO CRM</strong><span>GESTÃO COMERCIAL</span></div></div><div id="authContent"><p class="auth-copy">Conectando ao servidor...</p></div><div id="authError" class="auth-error" hidden></div></section>';
+    gate.innerHTML='<section class="auth-panel" role="dialog" aria-modal="true"><div class="auth-brand"><div class="auth-logo"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 8h8.5L25 22V8h8v24h-8L15 18v14H7z" fill="currentColor"/><path d="M25 8h8v7.5L25 22z" fill="currentColor" opacity=".62"/></svg></div><div><strong>NEXO CRM</strong><span>GESTÃO COMERCIAL</span></div></div><div id="authContent"><p class="auth-copy">Conectando ao servidor...</p></div><div id="authError" class="auth-error" hidden></div></section>';
     document.body.appendChild(gate);
   }
   function showAuthGate(mode='login', message='') {
@@ -459,7 +573,10 @@
 
   window.dashboard = function () {
     const contacts=state.contacts||[], deals=state.deals||[], tasks=state.tasks||[], activities=state.activities||[];
-    const opened=deals.filter(d=>!['Ganho','Perdido'].includes(d.stage));
+    const getDealStage=d=>(state.pipelineStages||[]).find(st=>Number(st.id)===Number(d.stage_id));
+    const isWonDeal=d=>Boolean(getDealStage(d)?.is_won ?? d.is_won);
+    const isLostDeal=d=>Boolean(getDealStage(d)?.is_lost ?? d.is_lost);
+    const opened=deals.filter(d=>!isWonDeal(d)&&!isLostDeal(d));
     const pending=tasks.filter(t=>!['Concluída','Cancelada'].includes(t.status));
     const openValue=opened.reduce((s,d)=>s+(Number(d.value)||0),0);
     const dateLabel=new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'short',year:'numeric'}).format(new Date()).replace('.','');
@@ -482,14 +599,117 @@
     return `${pageHeader('RELACIONAMENTO','Contatos','Gerencie contatos salvos no banco de dados.',button('Importar CSV',"document.getElementById('csvFile').click()",false,'download')+button('Novo contato',"openModal('contact')",true,'plus'))}<input type="file" id="csvFile" class="hidden" accept=".csv,text/csv" onchange="importCSV(this)"><section class="card table-card"><div class="card-head"><div><div class="card-title">Base de contatos <span style="color:#858c92;font-weight:500">(${state.contacts.length})</span></div><div class="card-sub">Cadastros persistidos no Supabase.</div></div><button class="btn small ghost" onclick="exportCSV('contacts')">${ico('download',13)} Exportar CSV</button></div><div class="table-toolbar"><label class="search-box">${ico('search')}<input id="contactSearch" placeholder="Buscar nome, empresa ou e-mail..." value="${esc(searchQuery)}" oninput="searchContacts(this.value)"></label><select class="toolbar-select" onchange="setContactFilter(this.value)">${statuses.map(s=>`<option ${contactFilter===s?'selected':''}>${esc(s)}</option>`).join('')}</select><div class="toolbar-spacer"></div></div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${filtered.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Nenhum contato encontrado</strong>Cadastre um contato ou ajuste os filtros.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${filtered.length}</b> contato(s) do banco.</span></div></section>`;
   };
   window.dealCard = function(d) {
-    return `<div class="deal-card" onclick="openModal('deal',${d.id})"><strong>${esc(d.title)}</strong><div class="deal-company">${esc(d.company||d.contact||'Contato')} · ${esc(d.contact||'')}</div><div class="deal-price">${money(d.value)}</div><div class="deal-foot"><span class="deal-owner"><span class="tiny-avatar">${initials(d.owner||'')}</span>${esc(d.owner||'—')}</span><span>${datePt(d.close)}</span></div></div>`;
+    const stages=(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position);
+    const stageOptions=stages.filter(s=>Number(s.pipeline_id)===Number(d.pipeline_id)).map(s=>`<option value="${s.id}" ${Number(s.id)===Number(d.stage_id)?'selected':''}>${esc(s.name)}</option>`).join('');
+    return `<article class="deal-card" data-deal-id="${d.id}" data-stage-id="${d.stage_id}" draggable="true" ondragstart="handleDealDragStart(event,${d.id})" ondragend="handleDealDragEnd(event)" onclick="if(Date.now()<(window.__nexoSuppressClickUntil||0)){event.preventDefault();return false;}openModal('deal',${d.id})"><strong>${esc(d.title)}</strong><div class="deal-company">${esc(d.company||d.contact||'Contato')}${d.contact?' · '+esc(d.contact):''}</div><div class="deal-price">${money(d.value)}</div><div class="deal-foot"><span class="deal-owner"><span class="tiny-avatar">${initials(d.owner||'')}</span>${esc(d.owner||'—')}</span><span>${datePt(d.close)}</span></div><select class="deal-move-select" aria-label="Mover oportunidade de etapa" onclick="event.stopPropagation()" onmousedown="event.stopPropagation()" onchange="quickMoveDeal(${d.id},this.value)"><option value="">Mover para…</option>${stageOptions}</select></article>`;
   };
+
+  window.allowDealDrop = function(event) {
+    event.preventDefault();
+    if(event.dataTransfer) event.dataTransfer.dropEffect='move';
+    event.currentTarget.closest('.stage-column')?.classList.add('drop-ready');
+  };
+  window.leaveDealDrop = function(event) {
+    if(!event.currentTarget.contains(event.relatedTarget)) event.currentTarget.closest('.stage-column')?.classList.remove('drop-ready');
+  };
+  window.handleDealDragStart = function(event,id) {
+    window.__nexoDragActive=true; window.__nexoDraggingDealId=Number(id);
+    window.__nexoSuppressClickUntil=Date.now()+650;
+    event.dataTransfer.effectAllowed='move'; event.dataTransfer.setData('text/plain',String(id));
+    event.currentTarget.classList.add('dragging');
+  };
+  window.handleDealDragEnd = function(event) {
+    event.currentTarget?.classList.remove('dragging');
+    document.querySelectorAll('.stage-column.drop-ready').forEach(el=>el.classList.remove('drop-ready'));
+    window.__nexoDragActive=false; window.__nexoDraggingDealId=null;
+    window.__nexoSuppressClickUntil=Date.now()+250;
+  };
+  function updateStageCountsInDom() {
+    document.querySelectorAll('[data-stage-column]').forEach(column=>{
+      const stageId=Number(column.dataset.stageColumn);
+      const deals=(state.deals||[]).filter(d=>Number(d.stage_id)===stageId);
+      const summary=column.querySelector('.stage-summary');
+      if(summary) summary.textContent=`${deals.length} · ${money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0))}`;
+    });
+  }
+  async function moveDealToStage(dealId,targetStageId) {
+    const deal=(state.deals||[]).find(d=>Number(d.id)===Number(dealId));
+    const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(targetStageId));
+    const card=document.querySelector(`[data-deal-id="${Number(dealId)}"]`);
+    const targetZone=document.querySelector(`[data-stage-dropzone="${Number(targetStageId)}"]`);
+    if(!deal||!stage||!card||!targetZone)return;
+    if(Number(deal.stage_id)===Number(stage.id))return;
+    if(Number(deal.pipeline_id)!==Number(stage.pipeline_id)) { showToast('Esta coluna pertence a outro funil.'); return; }
+    const oldStageId=Number(deal.stage_id), oldStage=deal.stage;
+    const sourceZone=card.parentElement;
+    const oldClosedAt=deal.closed_at||null;
+    deal.stage_id=Number(stage.id);deal.stage=stage.name;deal.is_won=Boolean(stage.is_won);deal.is_lost=Boolean(stage.is_lost);
+    deal.closed_at=(stage.is_won||stage.is_lost)?new Date().toISOString():null;
+    card.dataset.stageId=String(stage.id);card.classList.add('saving-stage');
+    targetZone.appendChild(card); updateStageCountsInDom();
+    try {
+      await api('deals','PATCH',{id:Number(deal.id),pipeline_id:Number(deal.pipeline_id),stage_id:Number(stage.id)});
+      await api('activities','POST',{title:'Oportunidade movida',body:`${deal.title}: ${oldStage||'Etapa anterior'} → ${stage.name}`,type:'stage_change',contact_id:Number(deal.contact_id),deal_id:Number(deal.id)}).catch(e=>console.warn('Histórico não registrado:',e.message));
+      card.classList.remove('saving-stage');
+      const mover=card.querySelector('.deal-move-select'); if(mover)mover.value=String(stage.id);
+      showToast(`Oportunidade movida para “${stage.name}”.`);
+    } catch(e) {
+      deal.stage_id=oldStageId;deal.stage=oldStage;deal.is_won=Boolean((state.pipelineStages||[]).find(st=>Number(st.id)===oldStageId)?.is_won);deal.is_lost=Boolean((state.pipelineStages||[]).find(st=>Number(st.id)===oldStageId)?.is_lost);deal.closed_at=oldClosedAt;
+      card.dataset.stageId=String(oldStageId);card.classList.remove('saving-stage');
+      const mover=card.querySelector('.deal-move-select'); if(mover)mover.value=String(oldStageId);
+      if(sourceZone)sourceZone.appendChild(card);
+      updateStageCountsInDom();
+      showToast(e.message||'Não foi possível mover a oportunidade. Confira a permissão de edição no Supabase.');
+    }
+  }
+  window.dropDeal = async function(event,targetStageId) {
+    event.preventDefault();
+    const id=Number(event.dataTransfer?.getData('text/plain')||window.__nexoDraggingDealId);
+    event.currentTarget.closest('.stage-column')?.classList.remove('drop-ready');
+    if(id) await moveDealToStage(id,Number(targetStageId));
+  };
+  window.quickMoveDeal = async function(id,stageId) {
+    if(!stageId)return;
+    await moveDealToStage(Number(id),Number(stageId));
+    const deal=(state.deals||[]).find(d=>Number(d.id)===Number(id));
+    const select=document.querySelector(`[data-deal-id="${Number(id)}"] .deal-move-select`);
+    if(select&&deal)select.value=String(deal.stage_id);
+  };
+  window.toggleStageCreator = function() {
+    const form=document.getElementById('stageCreateForm');
+    if(!form)return;
+    form.style.display=form.style.display==='block'?'none':'block';
+    if(form.style.display==='block')document.getElementById('newStageName')?.focus();
+  };
+  window.createPipelineStageFromBoard = async function(event) {
+    event.preventDefault();
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode criar colunas.');return;}
+    const name=document.getElementById('newStageName')?.value?.trim();
+    const stage_type=document.getElementById('newStageType')?.value||'open';
+    const probability=stage_type==='won'?100:stage_type==='lost'?0:Number(document.getElementById('newStageProbability')?.value||0);
+    const pipelineId=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id);
+    if(!name){showToast('Informe o nome da nova coluna.');return;}
+    if(!pipelineId){showToast('Não há um funil ativo configurado.');return;}
+    try {
+      await api('pipeline-stages','POST',{name,pipeline_id:pipelineId,probability,stage_type});
+      await loadRemoteState(); render(); showToast(`Coluna “${name}” criada.`);
+    } catch(e) { showToast(e.message||'Não foi possível criar a coluna. Se necessário, execute a migração SQL incluída no pacote.'); }
+  };
+
   window.pipelinePage = function () {
     const q=(searchQuery||'').toLowerCase();
     const filtered=(state.deals||[]).filter(d=>!q||[d.title,d.company,d.contact].some(v=>(v||'').toLowerCase().includes(q)));
-    const stages=(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position);
-    return `${pageHeader('OPORTUNIDADES','Funil de vendas','Acompanhe os negócios e suas etapas reais.',button('Nova oportunidade',"openModal('deal')",true,'plus'))}<div class="toolbar-row"><label class="search-box">${ico('search')}<input placeholder="Buscar oportunidade..." value="${esc(searchQuery)}" oninput="searchPipeline(this.value)"></label><div class="toolbar-spacer"></div><span style="font-size:11px;color:var(--muted)">${filtered.length} oportunidades</span></div><div class="pipeline-board">${stages.map(s=>{const ds=filtered.filter(d=>Number(d.stage_id)===Number(s.id));const total=ds.reduce((a,d)=>a+d.value,0);return `<section class="stage-column"><div class="stage-head"><span class="stage-dot"></span><strong>${esc(s.name)}</strong><span>${ds.length} · ${money(total)}</span></div>${ds.map(dealCard).join('')}<button class="btn small ghost" style="margin:0 10px 10px;width:calc(100% - 20px);justify-content:center" onclick="openModal('deal',null,'${esc(s.name)}')">${ico('plus',13)} Adicionar</button></section>`}).join('')}</div><div class="card" style="padding:16px 18px;margin-top:14px;display:flex;gap:10px;align-items:center"><span class="stat-icon">${ico('target')}</span><div style="flex:1"><div class="card-title">Valor em aberto</div><div class="card-sub">Soma das oportunidades que não foram ganhas ou perdidas.</div></div><div style="font-size:21px;font-weight:750">${money(filtered.filter(d=>!['Ganho','Perdido'].includes(d.stage)).reduce((a,d)=>a+d.value,0))}</div></div>`;
+    const pipelineId=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id||0);
+    const stages=(state.pipelineStages||[]).filter(s=>!pipelineId||Number(s.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
+    const canManage=currentUser?.role==='admin';
+    const columns=stages.map(s=>{
+      const ds=filtered.filter(d=>Number(d.stage_id)===Number(s.id));
+      const total=ds.reduce((a,d)=>a+(Number(d.value)||0),0);
+      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><span class="stage-dot"></span><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${ds.length} · ${money(total)}</span></div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}</div><button class="btn small ghost" style="margin:0 10px 10px;width:calc(100% - 20px);justify-content:center" onclick="openModal('deal',null,${JSON.stringify(s.name).replace(/"/g, '&quot;')})">${ico('plus',13)} Adicionar oportunidade</button></section>`;
+    }).join('');
+    return `${pageHeader('OPORTUNIDADES','Funil de vendas','Arraste os cards entre as colunas para atualizar a etapa.',(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Nova oportunidade',"openModal('deal')",true,'target'))}<div class="toolbar-row"><label class="search-box">${ico('search')}<input placeholder="Buscar oportunidade..." value="${esc(searchQuery)}" oninput="searchPipeline(this.value)"></label><div class="toolbar-spacer"></div><span style="font-size:11px;color:var(--muted)">${filtered.length} oportunidades</span></div><form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form><p class="stage-move-hint">Dica: arraste um card para outra coluna. No celular, use o seletor “Mover para...” dentro do card.</p><div class="pipeline-board">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="card" style="padding:16px 18px;margin-top:14px;display:flex;gap:10px;align-items:center"><span class="stat-icon">${ico('target')}</span><div style="flex:1"><div class="card-title">Valor em aberto</div><div class="card-sub">Soma das oportunidades que não foram ganhas ou perdidas.</div></div><div style="font-size:21px;font-weight:750">${money(filtered.filter(d=>!stages.find(s=>Number(s.id)===Number(d.stage_id)&&(s.is_won||s.is_lost))).reduce((a,d)=>a+(Number(d.value)||0),0))}</div></div>`;
   };
+
   window.tasksPage = function () {
     const tasks=(state.tasks||[]).filter(t=>taskFilter==='Todas'||(taskFilter==='Pendentes'?t.status!=='Concluída'&&t.status!=='Cancelada':taskFilter==='Concluídas'?t.status==='Concluída':t.date && t.date<new Date().toISOString().slice(0,10)&&t.status!=='Concluída'));
     return `${pageHeader('ROTINA COMERCIAL','Tarefas','Organize retornos, ligações e reuniões.',button('Nova tarefa',"openModal('task')",true,'plus'))}<section class="card"><div class="card-head"><div><div class="card-title">Lista de tarefas</div><div class="card-sub">As alterações são salvas no Supabase.</div></div><div style="text-align:right"><div style="font-size:20px;font-weight:750">${state.tasks.filter(t=>t.status!=='Concluída'&&t.status!=='Cancelada').length}</div><div style="font-size:10px;color:var(--muted)">pendentes</div></div></div><div style="padding:0 19px 14px"><div class="task-status-tabs">${['Todas','Pendentes','Concluídas','Atrasadas'].map(x=>`<button class="${taskFilter===x?'active':''}" onclick="setTaskFilter('${x}')">${x}</button>`).join('')}</div></div><div style="padding:0 19px 10px"><div class="task-row" style="border-top:1px solid #282c30;color:#747c82;font-size:10px;text-transform:uppercase;letter-spacing:.08em"><div></div><div>Tarefa / vínculo</div><div class="task-owner">Responsável</div><div>Prazo</div><div class="task-priority">Prioridade</div><div></div></div>${tasks.map(taskPageRow).join('')||'<div class="empty"><strong>Nenhuma tarefa por aqui</strong>Crie uma tarefa para organizar os próximos passos.</div>'}</div></section>`;
@@ -498,7 +718,11 @@
     return `${pageHeader('HISTÓRICO','Atividades','Histórico registrado no servidor.',button('Registrar atividade',"openModal('activity')",true,'plus'))}<section class="card"><div class="card-head"><div><div class="card-title">Linha do tempo</div><div class="card-sub">Interações e notas comerciais</div></div></div><div class="activity-list">${state.activities.map(activityItem).join('')||'<div class="empty">Nenhuma atividade registrada.</div>'}</div></section>`;
   };
   window.reportsPage = function () {
-    const deals=state.deals||[], contacts=state.contacts||[], won=deals.filter(d=>d.stage==='Ganho'), lost=deals.filter(d=>d.stage==='Perdido'), opened=deals.filter(d=>!['Ganho','Perdido'].includes(d.stage));
+    const deals=state.deals||[], contacts=state.contacts||[];
+    const stageForDeal=d=>(state.pipelineStages||[]).find(st=>Number(st.id)===Number(d.stage_id));
+    const won=deals.filter(d=>Boolean(stageForDeal(d)?.is_won ?? d.is_won));
+    const lost=deals.filter(d=>Boolean(stageForDeal(d)?.is_lost ?? d.is_lost));
+    const opened=deals.filter(d=>!Boolean(stageForDeal(d)?.is_won ?? d.is_won)&&!Boolean(stageForDeal(d)?.is_lost ?? d.is_lost));
     const wonTotal=won.reduce((s,d)=>s+d.value,0), openTotal=opened.reduce((s,d)=>s+d.value,0);
     const stages=(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position);
     const sources={}; contacts.forEach(c=>{const k=c.source||'Não informado';sources[k]=(sources[k]||0)+1;});
@@ -636,26 +860,53 @@
     const phone=document.getElementById('settingPhone')?.value||null;
     const timezone=document.getElementById('settingTimezone')?.value||'America/Sao_Paulo';
     const currency=document.getElementById('settingCurrency')?.value||'BRL';
-    try {await api('settings','POST',{name,email,phone,timezone,currency});await loadRemoteState();render();showToast('Configurações salvas no Supabase.');}
+    let localTheme='dark',localAccent='#788d52';try{localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;localAccent=localStorage.getItem('nexo-crm-accent')||localAccent;}catch(_){}
+    try {await api('settings','POST',{name,email,phone,timezone,currency,theme_mode:companySettings?.theme_mode||localTheme,accent_color:companySettings?.accent_color||localAccent});await loadRemoteState();render();showToast('Configurações salvas no Supabase.');}
     catch(e){showToast(e.message||'Não foi possível salvar as configurações.');}
   };
   window.setSettingsTab = function(t){activeSettings=t;render();};
+  window.savePipelineStage = async function(id) {
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode editar colunas.');return;}
+    const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(id));
+    const name=document.getElementById(`stageName-${id}`)?.value?.trim();
+    const stage_type=document.getElementById(`stageType-${id}`)?.value||'open';
+    const probability=stage_type==='won'?100:stage_type==='lost'?0:Number(document.getElementById(`stageProbability-${id}`)?.value||0);
+    if(!name){showToast('O nome da coluna não pode ficar vazio.');return;}
+    try { await api('pipeline-stages','PATCH',{id:Number(id),name,probability,stage_type}); await loadRemoteState();render();showToast('Coluna atualizada.'); }
+    catch(e){showToast(e.message||'Não foi possível atualizar a coluna. Confira a migração do Supabase.');}
+  };
+  window.deletePipelineStage = async function(id) {
+    const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(id));
+    if(!stage)return;
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode excluir colunas.');return;}
+    if(!confirm(`Excluir a coluna “${stage.name}”? Ela precisa estar vazia.`))return;
+    try { await api('pipeline-stages','DELETE',null,{id:Number(id)}); await loadRemoteState();render();showToast('Coluna excluída.'); }
+    catch(e){showToast(e.message||'Não foi possível excluir a coluna.');}
+  };
   window.settingsPage = function() {
     const name=companySettings?.name||'';const email=companySettings?.email||'';const phone=companySettings?.phone||'';const timezone=companySettings?.timezone||'America/Sao_Paulo';const currency=companySettings?.currency||'BRL';
+    let localTheme='dark',localAccent='#788d52';try{localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;localAccent=localStorage.getItem('nexo-crm-accent')||localAccent;}catch(_){}
+    const theme=companySettings?.theme_mode||localTheme;const accent=cleanHex(companySettings?.accent_color||localAccent);
+    const canManage=currentUser?.role==='admin';
     let contents='';
-    if(activeSettings==='empresa') {
+    if(activeSettings==='aparencia') {
+      const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch" style="background:${c}" title="Usar cor ${c}" aria-label="Usar cor ${c}" onclick="chooseNexoAccent('${c}')"></button>`).join('');
+      contents=`<h3 class="settings-section-title">Aparência do NEXO</h3><p class="settings-section-desc">Escolha a cor de destaque e alterne entre o modo escuro e o modo branco. A visualização muda imediatamente.</p><div class="form-field" style="max-width:360px"><label for="settingThemeMode">Tema</label><select id="settingThemeMode" onchange="previewNexoAppearance()"><option value="dark" ${theme==='dark'?'selected':''}>Modo escuro</option><option value="light" ${theme==='light'?'selected':''}>Modo branco (claro)</option></select></div><div class="theme-control"><div><label for="settingAccentColor" style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px">Roleta de cores / cor personalizada</label><input id="settingAccentColor" type="color" value="${accent}" oninput="previewNexoAppearance()" aria-label="Escolher cor de destaque"></div><div><div style="font-size:11px;font-weight:700">Paleta rápida</div><p class="form-help">Escolha uma cor ou use a roleta.</p><div class="theme-swatches">${swatches}</div></div></div><div class="appearance-preview"><div class="appearance-preview-mark"><svg viewBox="0 0 40 40" width="26" height="26"><path d="M7 8h8.5L25 22V8h8v24h-8L15 18v14H7z" fill="currentColor"/></svg></div><div style="flex:1"><strong style="display:block">Prévia NEXO CRM</strong><span class="card-sub">Esta é a combinação de cores selecionada.</span></div><button class="btn primary small" type="button" onclick="previewNexoAppearance()">Aplicar prévia</button></div>${canManage?button('Salvar aparência para a empresa','saveNexoAppearance()',true,'check'):'<p class="form-help">Apenas um administrador pode salvar a aparência para toda a empresa. O tema da prévia ficará neste navegador.</p>'}<p class="form-help" style="margin-top:12px">A preferência é aplicada imediatamente neste navegador. Ao salvar, ela será compartilhada com os usuários desta instalação.</p>`;
+    } else if(activeSettings==='empresa') {
       contents=`<h3 class="settings-section-title">Dados da empresa</h3><p class="settings-section-desc">Estas informações ficam armazenadas no banco de dados Supabase.</p><div class="form-grid"><div class="form-field"><label>Nome da empresa</label><input id="settingCompany" value="${esc(name)}" placeholder="Sua empresa"></div><div class="form-field"><label>E-mail de contato</label><input id="settingEmail" type="email" value="${esc(email)}" placeholder="contato@empresa.com.br"></div><div class="form-field"><label>Telefone</label><input id="settingPhone" value="${esc(phone)}" placeholder="Telefone comercial"></div><div class="form-field"><label>Fuso horário</label><select id="settingTimezone"><option value="America/Sao_Paulo" ${timezone==='America/Sao_Paulo'?'selected':''}>America/Sao_Paulo</option><option value="UTC" ${timezone==='UTC'?'selected':''}>UTC</option></select></div><div class="form-field"><label>Moeda</label><select id="settingCurrency"><option value="BRL" ${currency==='BRL'?'selected':''}>Real brasileiro (BRL)</option><option value="USD" ${currency==='USD'?'selected':''}>Dólar americano (USD)</option><option value="EUR" ${currency==='EUR'?'selected':''}>Euro (EUR)</option></select></div></div><div style="margin-top:20px">${button('Salvar alterações','saveSettings()',true,'check')}</div>`;
     } else if(activeSettings==='usuarios') {
-      const canManage=currentUser?.role==='admin';
       contents=`<h3 class="settings-section-title">Usuários e acesso</h3><p class="settings-section-desc">Acesso à instalação e perfil de cada integrante.</p>${canManage?`<div style="margin-bottom:15px"><p class="form-help">Para adicionar pessoas: Supabase → Authentication → Users → Add user. O perfil será criado automaticamente pelo banco. Não habilite cadastro público nesta instalação.</p></div>`:''}<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th>${canManage?'<th>Ação</th>':''}</tr></thead><tbody>${(state.users||[]).map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email||'')}</td><td>${esc(({admin:'Administrador',manager:'Gerente',sales:'Vendedor'})[u.role]||u.role)}</td><td>${Number(u.is_active)!==0?'Ativo':'Desativado'}</td>${canManage?`<td>${Number(u.id)!==Number(currentUser.id)?`<button class="inline-action" onclick="toggleUser(${u.id},${Number(u.is_active)!==0?0:1})">${Number(u.is_active)!==0?'Desativar':'Ativar'}</button>`:'Você'}</td>`:''}</tr>`).join('')||'<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>'}</tbody></table></div><p class="form-help">As senhas são administradas pelo Supabase Auth e nunca aparecem nesta tela.</p>`;
     } else if(activeSettings==='funil') {
-      contents=`<h3 class="settings-section-title">Etapas do funil</h3><p class="settings-section-desc">Etapas carregadas do Supabase. A edição de etapas será adicionada em outra etapa de desenvolvimento.</p>${(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position).map(s=>`<div class="activity-item"><div class="activity-icon">${s.position}</div><div class="activity-body"><div class="contact-name">${esc(s.name)}</div><div class="contact-company">${s.is_won?'Etapa de ganho':s.is_lost?'Etapa de perda':`Probabilidade de ${s.probability}%`}</div></div></div>`).join('')}`;
+      const pipelineId=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id||0);
+      const stages=(state.pipelineStages||[]).filter(s=>!pipelineId||Number(s.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
+      const rows=stages.map((stage,i)=>`<div class="stage-manage-row"><div class="stage-number">${i+1}</div><div><label class="form-help" for="stageName-${stage.id}">Nome da coluna</label><input id="stageName-${stage.id}" maxlength="80" value="${esc(stage.name)}" ${canManage?'':'disabled'}></div><div class="stage-probability-field"><label class="form-help" for="stageProbability-${stage.id}">Probabilidade (%)</label><input id="stageProbability-${stage.id}" type="number" min="0" max="100" value="${Number(stage.probability)||0}" ${canManage?'':'disabled'}></div><div class="stage-type-field"><label class="form-help" for="stageType-${stage.id}">Classificação</label><select id="stageType-${stage.id}" ${canManage?'':'disabled'}><option value="open" ${!stage.is_won&&!stage.is_lost?'selected':''}>Em andamento</option><option value="won" ${stage.is_won?'selected':''}>Ganho</option><option value="lost" ${stage.is_lost?'selected':''}>Perdido</option></select></div>${canManage?`<button class="btn small primary stage-save-button" onclick="savePipelineStage(${stage.id})">Salvar</button><button class="btn small ghost stage-delete-button" onclick="deletePipelineStage(${stage.id})" aria-label="Excluir coluna">Excluir</button>`:'<span></span><span></span>'}</div>`).join('');
+      contents=`<h3 class="settings-section-title">Colunas do funil</h3><p class="settings-section-desc">Renomeie colunas, ajuste a probabilidade e defina quais representam negócios ganhos ou perdidos. Para criar novas colunas, use o botão “Nova coluna” no funil.</p>${canManage?`<div class="form-help">Só é possível excluir uma coluna vazia. O sistema impede apagar etapas que ainda contenham oportunidades.</div>`:'<p class="form-help">Somente o administrador pode alterar as colunas.</p>'}<div class="stage-management-list">${rows||'<div class="empty">Nenhuma coluna cadastrada.</div>'}</div>`;
     } else if(activeSettings==='dados') {
       contents=`<h3 class="settings-section-title">Dados e exportação</h3><p class="settings-section-desc">Exporte dados para cópia externa. Para backup completo, use os recursos de backup/exportação disponíveis no painel do Supabase.</p><div class="toggle-row"><div class="toggle-copy"><strong>Exportar contatos</strong><span>Baixe os contatos da base atual em CSV.</span></div>${button('Exportar CSV',"exportCSV('contacts')",false,'download')}</div><div class="toggle-row"><div class="toggle-copy"><strong>Exportar oportunidades</strong><span>Baixe os negócios do funil em CSV.</span></div>${button('Exportar CSV',"exportCSV('deals')",false,'download')}</div><div class="toggle-row"><div class="toggle-copy"><strong>Backup do Supabase</strong><span>Use Supabase Dashboard → Database → Backups/Export para proteger os dados do projeto.</span></div><span class="status">Manual</span></div>`;
     } else {
-      contents=`<h3 class="settings-section-title">Licença e versão</h3><p class="settings-section-desc">Informações desta instalação do CRM.</p><div class="card" style="padding:18px;background:#101214"><div class="eyebrow">NEXO CRM</div><div style="font-size:20px;font-weight:750;margin:6px 0">Versão de integração inicial</div><p class="card-sub" style="line-height:1.7">Interface HTML conectada ao Supabase Auth e PostgreSQL. Antes de comercializar, finalize a revisão de segurança, auditoria, instalação e backups.</p></div>`;
+      contents=`<h3 class="settings-section-title">Licença e versão</h3><p class="settings-section-desc">Informações desta instalação do CRM.</p><div class="card" style="padding:18px;background:var(--panel2)"><div class="eyebrow">NEXO CRM</div><div style="font-size:20px;font-weight:750;margin:6px 0">Versão 0.3 · Aparência e funil editável</div><p class="card-sub" style="line-height:1.7">Interface conectada ao Supabase Auth e PostgreSQL. Antes de comercializar, finalize testes de segurança, auditoria, backups e permissões.</p></div>`;
     }
-    return `${pageHeader('PREFERÊNCIAS','Configurações','Gerencie os dados da empresa, usuários e etapas do CRM.')}<div class="settings-layout"><aside class="card settings-nav">${[['empresa','Dados da empresa'],['usuarios','Usuários e acessos'],['funil','Etapas do funil'],['dados','Dados e backups'],['licenca','Licença e versão']].map(([k,v])=>`<button class="settings-tab ${activeSettings===k?'active':''}" onclick="setSettingsTab('${k}')">${v}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
+    return `${pageHeader('PREFERÊNCIAS','Configurações','Personalize a aparência e administre o CRM.')}<div class="settings-layout"><aside class="card settings-nav">${[['empresa','Dados da empresa'],['aparencia','Aparência e cores'],['usuarios','Usuários e acessos'],['funil','Colunas do funil'],['dados','Dados e backups'],['licenca','Licença e versão']].map(([k,v])=>`<button class="settings-tab ${activeSettings===k?'active':''}" onclick="setSettingsTab('${k}')">${v}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
   };
   window.toggleUser = async function(id,active) {
     if(!confirm(active?'Ativar este usuário?':'Desativar este usuário?'))return;
@@ -681,6 +932,7 @@
 
   // Reinitialize only after the authentication overlay has been attached.
   state=emptyState();
+  applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{return localStorage.getItem('nexo-crm-accent')||'#788d52';}catch(_){return '#788d52';}})(),false);
   ensureAuthMarkup();
   initializeApp();
 })();
