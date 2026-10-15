@@ -5,6 +5,6 @@
  * NUNCA coloque a chave secret/service_role neste arquivo.
  */
 window.NEXO_SUPABASE_CONFIG = {
-  url: "https://felx0208.github.io/nexo-crm/",
+  url: "https://eadvjfntjqqhnfqhvtzb.supabase.co",
   publishableKey: "sb_publishable_oSmIwPwY2lnolk80e_Cr0Q_odOjyyht"
 };
