@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="nexo" x1="6" y1="5" x2="57" y2="59" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#416A9A"/>
+      <stop offset="1" stop-color="#24466F"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="18" fill="url(#nexo)"/>
+  <rect x="2.75" y="2.75" width="58.5" height="58.5" rx="17.25" stroke="#DCE8C9" stroke-opacity=".24" stroke-width="1.5"/>
+  <path d="M14 14h12l12 17V14h12v36H38L26 33v17H14V14Z" fill="#F5F7EF"/>
+  <path d="M38 14h12v11L38 31V14Z" fill="#F5F7EF" fill-opacity=".62"/>
+</svg>
