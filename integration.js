@@ -16,6 +16,9 @@
   // Cards virtuais para testar drag-and-drop; nunca são gravados no Supabase.
   let blankTestCards = [];
   let blankTestSequence = 0;
+  let selectedTimelineContactId = null;
+  let releaseNotesVisible = false;
+  let activeSavedViewId = '';
 
   const statusToApi = {
     'Novo lead': 'lead', 'Qualificado': 'prospect', 'Em negociação': 'negotiation',
@@ -33,7 +36,7 @@
   const priorityFromApi = {low:'Baixa',medium:'Média',high:'Alta'};
   const stageAliases = {}; // Os nomes das colunas são personalizados pelo administrador e permanecem fiéis ao banco.
 
-  function emptyState() { return {contacts:[],deals:[],tasks:[],activities:[],pipelines:[],pipelineStages:[],users:[]}; }
+  function emptyState() { return {contacts:[],deals:[],tasks:[],activities:[],pipelines:[],pipelineStages:[],users:[],savedViews:[],customFields:[],customFieldValues:[]}; }
   window.loadState = function () { return emptyState(); };
   window.saveState = function () { /* O Supabase é a fonte oficial; não usamos localStorage. */ };
 
@@ -311,12 +314,13 @@
         return {data:(data||[]).map(r=>({...r,contact_name:r.contact?.name||'',deal_title:r.deal?.title||'',assignee_name:r.assignee?.name||null}))};
       }
       if (method === 'POST') {
-        const payload = dbPayload(d,['title','description','type','status','priority','due_at','assigned_to','created_by','contact_id','deal_id','completed_at']);
+        const payload = dbPayload(d,['title','description','type','status','priority','due_at','assigned_to','created_by','contact_id','deal_id','completed_at','recurrence_rule']);
         payload.title = checkedText(d.title, 'Título da tarefa', 190, true);
         payload.description = checkedText(d.description, 'Descrição', 20000);
         payload.type = checkedChoice(d.type, 'Tipo da tarefa', ['call','meeting','email','follow_up','other'], 'other');
         payload.status = checkedChoice(d.status, 'Status da tarefa', ['pending','in_progress','completed','cancelled'], 'pending');
         payload.priority = checkedChoice(d.priority, 'Prioridade', ['low','medium','high'], 'medium');
+        payload.recurrence_rule = checkedChoice(d.recurrence_rule, 'Repetição', ['none','daily','weekly','biweekly','monthly'], 'none');
         payload.assigned_to = checkedId(d.assigned_to ?? currentUser?.id, 'Responsável', true);
         payload.created_by = currentUser ? currentUser.id : null; // Never trust an actor ID supplied by the browser.
         if (d.contact_id !== undefined && d.contact_id !== null && d.contact_id !== '') payload.contact_id = checkedId(d.contact_id, 'Contato relacionado');
@@ -326,9 +330,10 @@
         return {id:Number(created.id),message:'Tarefa criada.'};
       }
       if (['PUT','PATCH'].includes(method)) {
-        const payload = dbPayload(d,['status','title','priority','due_at','description','assigned_to','contact_id','deal_id']);
+        const payload = dbPayload(d,['status','title','priority','due_at','description','assigned_to','contact_id','deal_id','recurrence_rule']);
         if (payload.status === 'completed') payload.completed_at = now;
         else if (payload.status) payload.completed_at = null;
+        if (Object.prototype.hasOwnProperty.call(payload,'recurrence_rule')) payload.recurrence_rule = checkedChoice(payload.recurrence_rule,'Repetição',['none','daily','weekly','biweekly','monthly'],'none');
         const updated = throwIfError(await client.from('tasks').update(payload).eq('id',id).is('deleted_at',null).select('id').maybeSingle());
         if (!updated) throw new Error('Tarefa não encontrada.');
         return {ok:true};
@@ -357,6 +362,90 @@
         payload.user_id = currentUser ? currentUser.id : null; // Database trigger stamps the trusted actor again.
         const data = throwIfError(await client.from('activities').insert(payload).select('id').single());
         return {id:Number(data.id),message:'Atividade registrada.'};
+      }
+    }
+
+    if (action === 'saved-views') {
+      if (method === 'GET') {
+        const data = throwIfError(await client.from('saved_views').select('*').order('created_at',{ascending:false}).limit(200));
+        return {data:data||[]};
+      }
+      if (method === 'POST') {
+        const name = checkedText(d.name, 'Nome do filtro salvo', 80, true);
+        const entity_type = checkedChoice(d.entity_type, 'Tipo de filtro', ['contacts','deals','tasks'], 'contacts');
+        const filters = (d.filters && typeof d.filters === 'object' && !Array.isArray(d.filters)) ? d.filters : {};
+        const is_shared = Boolean(d.is_shared) && currentUser?.role === 'admin';
+        const created = throwIfError(await client.from('saved_views').insert({name,entity_type,filters,owner_id:Number(currentUser.id),is_shared}).select('*').single());
+        return {data:created,message:'Filtro salvo.'};
+      }
+      if (method === 'PATCH' || method === 'PUT') {
+        const payload = {};
+        if (Object.prototype.hasOwnProperty.call(d,'name')) payload.name = checkedText(d.name,'Nome do filtro salvo',80,true);
+        if (Object.prototype.hasOwnProperty.call(d,'filters') && d.filters && typeof d.filters === 'object' && !Array.isArray(d.filters)) payload.filters = d.filters;
+        if (Object.prototype.hasOwnProperty.call(d,'is_shared')) payload.is_shared = Boolean(d.is_shared) && currentUser?.role === 'admin';
+        const updated = throwIfError(await client.from('saved_views').update(payload).eq('id',checkedId(id,'Filtro')).select('*').maybeSingle());
+        if (!updated) throw new Error('Filtro não encontrado ou sem permissão para editá-lo.');
+        return {data:updated};
+      }
+      if (method === 'DELETE') {
+        const deleted = throwIfError(await client.from('saved_views').delete().eq('id',checkedId(id,'Filtro')).select('id').maybeSingle());
+        if (!deleted) throw new Error('Filtro não encontrado ou sem permissão para removê-lo.');
+        return {ok:true};
+      }
+    }
+
+    if (action === 'custom-fields') {
+      if (method === 'GET') {
+        let request = client.from('custom_field_definitions').select('*').order('position').order('created_at');
+        if (currentUser?.role !== 'admin') request = request.eq('is_active', true);
+        const data = throwIfError(await request);
+        return {data:data||[]};
+      }
+      if (method === 'POST') {
+        if (currentUser?.role !== 'admin') throw new Error('Somente o administrador pode criar campos personalizados.');
+        const label = checkedText(d.label,'Nome do campo',80,true);
+        const entity_type = checkedChoice(d.entity_type,'Área do campo',['contacts','deals','tasks'],'contacts');
+        const field_type = checkedChoice(d.field_type,'Tipo do campo',['text','number','date','select','checkbox','email','url'],'text');
+        const field_key = String(d.field_key || label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')).slice(0,64);
+        if (!/^[a-z][a-z0-9_]{0,63}$/.test(field_key)) throw new Error('O identificador interno do campo está inválido.');
+        const options = Array.isArray(d.options) ? d.options.slice(0,40).map(x=>String(x).slice(0,100)).filter(Boolean) : [];
+        if (field_type==='select' && !options.length) throw new Error('Adicione pelo menos uma opção para um campo de seleção.');
+        const payload={label,field_key,entity_type,field_type,options,position:Number.isFinite(Number(d.position))?Math.max(0,Math.min(500,Number(d.position))):0,is_active:true};
+        const created=throwIfError(await client.from('custom_field_definitions').insert(payload).select('*').single());
+        return {data:created,message:'Campo personalizado criado.'};
+      }
+      if (method === 'PATCH' || method === 'PUT') {
+        if (currentUser?.role !== 'admin') throw new Error('Somente o administrador pode editar campos personalizados.');
+        const payload={};
+        if (Object.prototype.hasOwnProperty.call(d,'label')) payload.label=checkedText(d.label,'Nome do campo',80,true);
+        if (Object.prototype.hasOwnProperty.call(d,'options') && Array.isArray(d.options)) payload.options=d.options.slice(0,40).map(x=>String(x).slice(0,100)).filter(Boolean);
+        if (Object.prototype.hasOwnProperty.call(d,'is_active')) payload.is_active=Boolean(d.is_active);
+        if (Object.prototype.hasOwnProperty.call(d,'position')) payload.position=Math.max(0,Math.min(500,Number(d.position)||0));
+        const updated=throwIfError(await client.from('custom_field_definitions').update(payload).eq('id',checkedId(id,'Campo')).select('*').maybeSingle());
+        if (!updated) throw new Error('Campo personalizado não encontrado.');
+        return {data:updated};
+      }
+      if (method === 'DELETE') {
+        if (currentUser?.role !== 'admin') throw new Error('Somente o administrador pode desativar campos personalizados.');
+        const updated=throwIfError(await client.from('custom_field_definitions').update({is_active:false}).eq('id',checkedId(id,'Campo')).select('id').maybeSingle());
+        if (!updated) throw new Error('Campo personalizado não encontrado.');
+        return {ok:true};
+      }
+    }
+
+    if (action === 'custom-field-values') {
+      if (method === 'GET') {
+        const data=throwIfError(await client.from('custom_field_values').select('*').limit(4000));
+        return {data:data||[]};
+      }
+      if (method === 'POST' || method === 'PUT' || method === 'PATCH') {
+        const entity_type=checkedChoice(d.entity_type,'Tipo de registro',['contacts','deals','tasks'],'contacts');
+        const field_id=checkedId(d.field_id,'Campo personalizado');
+        const record_id=checkedId(d.record_id,'Registro relacionado');
+        const value=(d.value===undefined)?null:d.value;
+        const row={entity_type,field_id,record_id,value};
+        const data=throwIfError(await client.from('custom_field_values').upsert(row,{onConflict:'entity_type,record_id,field_id'}).select('*').single());
+        return {data};
       }
     }
 
@@ -471,7 +560,8 @@
     return {...d, id:Number(d.id), contact_id:Number(d.contact_id), pipeline_id:Number(d.pipeline_id), stage_id:Number(d.stage_id), company:d.contact_company_name || '', contact:d.contact_name || '', contact_last_contact_at:d.contact_last_contact_at || d.contact?.last_contact_at || d.last_contact_at || null, stage:toStageUi(d.stage_name), value:Number(d.value)||0, owner:d.owner_name || (Number(d.owner_id) === Number(currentUser?.id) ? currentUser.name : ''), close:dateOnly(d.expected_close_date), lost_reason:d.lost_reason||'', stage_entered_at:d.stage_entered_at||null, stage_entered_at_estimated:Boolean(d.stage_entered_at_estimated)};
   }
   function mapTask(t) {
-    return {...t, id:Number(t.id), raw_status:t.status, raw_type:t.type, status:taskStatusFromApi[t.status] || 'Pendente', type:taskTypeFromApi[t.type] || 'Tarefa', priority:priorityFromApi[t.priority] || 'Média', date:dateOnly(t.due_at), time:timeOnly(t.due_at), related:t.contact_name || t.deal_title || '', owner:t.assignee_name || (Number(t.assigned_to) === Number(currentUser?.id) ? currentUser.name : '')};
+    const recurrenceLabels={none:'Sem repetição',daily:'Diária',weekly:'Semanal',biweekly:'Quinzenal',monthly:'Mensal'};
+    return {...t, id:Number(t.id), raw_status:t.status, raw_type:t.type, status:taskStatusFromApi[t.status] || 'Pendente', type:taskTypeFromApi[t.type] || 'Tarefa', priority:priorityFromApi[t.priority] || 'Média', date:dateOnly(t.due_at), time:timeOnly(t.due_at), related:t.contact_name || t.deal_title || '', owner:t.assignee_name || (Number(t.assigned_to) === Number(currentUser?.id) ? currentUser.name : ''), recurrence_label:recurrenceLabels[t.recurrence_rule||'none']||'Sem repetição'};
   }
   function mapActivity(a) {
     const iconMap = {note:'note',call:'phone',meeting:'calendar',email:'mail',stage_change:'target',status_change:'check',other:'note'};
@@ -585,6 +675,14 @@
     state.deals = (deals.data || []).map(mapDeal);
     state.tasks = (tasks.data || []).map(mapTask);
     state.activities = (activities.data || []).map(mapActivity);
+    const extras = await Promise.all([
+      api('saved-views').catch(e=>{console.warn('[NEXO CRM] Filtros salvos ainda não disponíveis:',e.message);return {data:[]};}),
+      api('custom-fields').catch(e=>{console.warn('[NEXO CRM] Campos personalizados ainda não disponíveis:',e.message);return {data:[]};}),
+      api('custom-field-values').catch(e=>{console.warn('[NEXO CRM] Valores de campos personalizados ainda não disponíveis:',e.message);return {data:[]};})
+    ]);
+    state.savedViews = extras[0].data || [];
+    state.customFields = extras[1].data || [];
+    state.customFieldValues = extras[2].data || [];
     state.pipelines = pipeline.data || [];
     state.pipelineStages = (pipeline.stages || []).map(s=>({...s,id:Number(s.id),pipeline_id:Number(s.pipeline_id),name:String(s.name||''),position:Number(s.position),probability:Number(s.probability),is_won:Boolean(s.is_won),is_lost:Boolean(s.is_lost)}));
     companySettings = settings.data || null;
@@ -646,6 +744,20 @@
   }
   function hideAuthGate() { const el=document.getElementById('authGate'); if(el) el.style.display='none'; }
 
+  function showReleaseNotes() {
+    let overlay=document.getElementById('nexoReleaseBackdrop');
+    if(!overlay) {
+      overlay=document.createElement('div'); overlay.id='nexoReleaseBackdrop'; overlay.className='nexo-release-backdrop'; overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.setAttribute('aria-labelledby','nexoReleaseTitle');
+      overlay.innerHTML=`<section class="nexo-release-dialog"><header class="nexo-release-head"><span class="nexo-release-mark">${ico('clock',21)}</span><div style="flex:1;min-width:0"><h2 id="nexoReleaseTitle">Novidades do NEXO CRM</h2><p>Patch 1.1.0-alpha · Fase 2 — Acompanhamento e automações iniciais*</p></div><button class="icon-button" aria-label="Fechar novidades" onclick="closeReleaseNotes()">${ico('x',18)}</button></header><div class="nexo-release-body"><div class="nexo-release-section"><strong>O que mudou nesta atualização</strong><ul><li>Nova tela <b>Acompanhamento</b> com tarefas próximas, atrasadas, leads sem próxima ação e leads sem contato recente.</li><li>Tarefas recorrentes: ao concluir uma tarefa recorrente, o banco cria a próxima ocorrência de forma transacional.</li><li>Campos personalizados para contatos, oportunidades e tarefas, administrados nas Configurações.</li><li>Filtros salvos para contatos, oportunidades e tarefas, com opção de compartilhamento pelo administrador.</li><li>Linha do tempo do lead reunindo atividades, tarefas e oportunidades vinculadas.</li><li>Descrição desta atualização aparece ao entrar no CRM; o ícone de novidades permite reabri-la.</li></ul></div><div class="nexo-release-section"><strong>O que ainda está em validação</strong><ul><li>Permissões e endurecimento de segurança dependem da execução do SQL combinado no Supabase.</li><li>Confirmação real de permissões, recorrência e filtros salvos ainda precisa ser feita neste projeto Supabase.</li></ul></div><div class="nexo-release-note"><b>* Validação pendente:</b> funcionalidades com asterisco foram preparadas no código, mas precisam ser conferidas no Supabase real. O asterisco marca itens implementados no código, porém não totalmente validados em ambiente real.</div></div><footer class="nexo-release-foot"><small>WhatsApp oficial continua adiado. Nenhum dado será removido por este patch.</small><button type="button" class="btn primary" onclick="closeReleaseNotes()">Entendi, entrar no CRM</button></footer></section>`;
+      overlay.addEventListener('click',e=>{if(e.target===overlay)closeReleaseNotes();});
+      document.body.appendChild(overlay);
+    }
+    overlay.classList.add('open'); releaseNotesVisible=true;
+    const firstButton=overlay.querySelector('button'); if(firstButton) setTimeout(()=>firstButton.focus(),30);
+  }
+  window.showReleaseNotes = showReleaseNotes;
+  window.closeReleaseNotes = function(){const el=document.getElementById('nexoReleaseBackdrop');if(el)el.classList.remove('open');releaseNotesVisible=false;};
+
   async function initializeApp() {
     ensureAuthMarkup();
     showAuthGate('login','Verificando a conexão com o servidor...');
@@ -655,7 +767,7 @@
       const session=await api('me');
       currentUser=session.user; csrfToken=session.csrf || '';
       await loadRemoteState();
-      hideAuthGate(); render();
+      hideAuthGate(); render(); showReleaseNotes();
     } catch (e) {
       if (e.message && (e.message.includes('Faça login') || e.message.includes('Sessão inválida'))) {
         showAuthGate('login'); return;
@@ -681,7 +793,7 @@
         const logged=await api('login','POST',{email:data.email,password:data.password});
         currentUser=logged.user; csrfToken=logged.csrf || '';
       }
-      await loadRemoteState(); hideAuthGate(); render(); showToast(`Bem-vindo, ${currentUser.name}.`);
+      await loadRemoteState(); hideAuthGate(); render(); showToast(`Bem-vindo, ${currentUser.name}.`); showReleaseNotes();
     } catch(e) {
       let nextMode=authMode;
       if(authMode==='setup') { try { const s=await api('setup-status'); nextMode=s.setup_required?'setup':'login'; } catch(_) { nextMode='error'; } }
@@ -691,7 +803,7 @@
 
   async function logout() {
     try { await api('logout','POST',{}); } catch(e) { /* limpa a interface mesmo se a sessão já expirou */ }
-    currentUser=null; csrfToken=''; state=emptyState(); showAuthGate('login','Você saiu da sua conta.');
+    currentUser=null; csrfToken=''; state=emptyState(); window.closeReleaseNotes?.(); showAuthGate('login','Você saiu da sua conta.');
   }
   window.nexoLogout=logout;
 
@@ -792,7 +904,7 @@
   }
   window.statusClass = function(s) { return ['Ganho','Qualificado','Concluída','Cliente'].includes(s)?'light':s==='Inativo'||s==='Cancelada'?'muted':''; };
   window.contactRow = function(c) {
-    return `<tr><td><div class="contact-cell"><div class="avatar">${esc(c.initials||initials(c.name))}</div><div><div class="contact-name">${esc(c.name)}</div><div class="contact-company">${esc(c.company||'—')}</div></div></div></td><td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td><span class="status ${statusClass(c.status)}">${esc(c.status||'Novo lead')}</span></td><td>${esc(c.owner||'—')}</td><td><button class="icon-button" aria-label="Editar contato" onclick="openModal('contact',${c.id})">${ico('dots',17)}</button></td></tr>`;
+    return `<tr><td><div class="contact-cell"><div class="avatar">${esc(c.initials||initials(c.name))}</div><div><div class="contact-name">${esc(c.name)}</div><div class="contact-company">${esc(c.company||'—')}</div></div></div></td><td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td><span class="status ${statusClass(c.status)}">${esc(c.status||'Novo lead')}</span></td><td>${esc(c.owner||'—')}</td><td><div style="display:flex;gap:4px;justify-content:flex-end"><button class="icon-button" aria-label="Ver histórico completo do contato" title="Histórico" onclick="openContactTimeline(${c.id})">${ico('clock',15)}</button><button class="icon-button" aria-label="Editar contato" title="Editar contato" onclick="openModal('contact',${c.id})">${ico('dots',17)}</button></div></td></tr>`;
   };
   window.activityItem = function(a) {
     const title=a.title || 'Atividade registrada';
@@ -804,7 +916,7 @@
     return `<div class="task-item"><button class="check-task ${t.status==='Concluída'?'done':''}" aria-label="${t.status==='Concluída'?'Reabrir':'Concluir'} tarefa" onclick="toggleTask(${t.id})"></button><div class="activity-body"><div class="task-text" style="${t.status==='Concluída'?'text-decoration:line-through;color:#81898f':''}">${esc(t.title)}</div><div class="task-meta"><span>${esc(t.related||'Sem vínculo')}</span><span>·</span><span class="due ${late?'overdue':''}">${ico('clock',10)} ${datePt(t.date)} · ${esc(t.time||'')}</span></div></div><button class="icon-button" aria-label="Editar tarefa" onclick="openModal('task',${t.id})">${ico('dots',15)}</button></div>`;
   };
   window.taskPageRow = function(t) {
-    return `<div class="task-row"><button class="check-task ${t.status==='Concluída'?'done':''}" onclick="toggleTask(${t.id})" aria-label="Alternar conclusão"></button><div><div class="task-title" style="${t.status==='Concluída'?'text-decoration:line-through;color:#777':''}">${esc(t.title)}</div><div class="task-sub">${esc(t.type)} · ${esc(t.related||'Sem vínculo')}</div></div><div class="task-owner"><span class="deal-owner"><span class="tiny-avatar">${initials(t.owner||'')}</span><span style="font-size:10px;color:#a9b0b5">${esc(t.owner||'—')}</span></span></div><div class="task-due">${datePt(t.date)} <span style="color:#737b82">${esc(t.time||'')}</span></div><div class="task-priority priority">${esc(t.priority)}</div><button class="icon-button task-actions" onclick="openModal('task',${t.id})" aria-label="Editar tarefa">${ico('dots',16)}</button></div>`;
+    return `<div class="task-row"><button class="check-task ${t.status==='Concluída'?'done':''}" onclick="toggleTask(${t.id})" aria-label="Alternar conclusão"></button><div><div class="task-title" style="${t.status==='Concluída'?'text-decoration:line-through;color:#777':''}">${esc(t.title)}</div><div class="task-sub">${esc(t.type)} · ${esc(t.related||'Sem vínculo')}${t.recurrence_rule&&t.recurrence_rule!=='none'?` · ↻ ${esc(t.recurrence_label||'Recorrente')}`:''}</div></div><div class="task-owner"><span class="deal-owner"><span class="tiny-avatar">${initials(t.owner||'')}</span><span style="font-size:10px;color:var(--muted)">${esc(t.owner||'—')}</span></span></div><div class="task-due">${datePt(t.date)} <span style="color:var(--muted)">${esc(t.time||'')}</span></div><div class="task-priority priority">${esc(t.priority)}</div><button class="icon-button task-actions" onclick="openModal('task',${t.id})" aria-label="Editar tarefa">${ico('dots',16)}</button></div>`;
   };
 
   window.dashboard = function () {
@@ -829,10 +941,45 @@
       <div class="bottom-grid"><section class="card"><div class="card-head"><div><div class="card-title">Atividade recente</div><div class="card-sub">Interações registradas no sistema</div></div><button class="icon-button" aria-label="Ver atividades" onclick="navigate('activities')">${ico('arrow',16)}</button></div><div class="activity-list">${activities.slice(0,5).map(activityItem).join('')||'<div class="empty">Nenhuma atividade registrada.</div>'}</div></section><section class="card"><div class="card-head"><div><div class="card-title">Próximas tarefas</div><div class="card-sub">Acompanhamento de retornos</div></div><button class="icon-button" aria-label="Ver tarefas" onclick="navigate('tasks')">${ico('arrow',16)}</button></div><div class="tasks-list">${pending.slice(0,4).map(taskItem).join('')||'<div class="empty">Nenhuma tarefa pendente.</div>'}</div></section></div>`;
   };
 
+  function savedViewsMarkup(entityType) {
+    const views=(state.savedViews||[]).filter(v=>v.entity_type===entityType);
+    return `<div class="saved-view-controls"><select aria-label="Filtros salvos" onchange="applySavedView(this.value)"><option value="">Filtros salvos${views.length?'…':' · nenhum ainda'}</option>${views.map(v=>`<option value="${Number(v.id)}">${esc(v.name)}${v.is_shared?' · equipe':''}</option>`).join('')}</select><button class="btn small ghost" type="button" onclick="saveCurrentView('${entityType}')">Salvar filtro</button></div>`;
+  }
+  window.saveCurrentView = async function(entityType) {
+    const name=prompt('Dê um nome para este filtro:');
+    if(!name || !name.trim()) return;
+    let filters={};
+    if(entityType==='contacts') filters={query:searchQuery||'',status:contactFilter||'Todos'};
+    else if(entityType==='deals') filters={query:pipelineSearchQuery||'',viewMode:pipelineViewMode||'board'};
+    else if(entityType==='tasks') filters={status:taskFilter||'Todas'};
+    try {
+      const shared=currentUser?.role==='admin' && confirm('Compartilhar este filtro com os demais usuários da empresa?');
+      await api('saved-views','POST',{name:name.trim(),entity_type:entityType,filters,is_shared:shared});
+      await loadRemoteState(); render(); showToast('Filtro salvo.');
+    } catch(e) { showToast(e.message||'Não foi possível salvar o filtro.'); }
+  };
+  window.applySavedView = function(value) {
+    if(!value) return;
+    const view=(state.savedViews||[]).find(v=>Number(v.id)===Number(value));
+    if(!view)return;
+    const f=view.filters||{}; activeSavedViewId=String(view.id);
+    if(view.entity_type==='contacts') { searchQuery=String(f.query||''); contactFilter=String(f.status||'Todos'); navigate('contacts'); }
+    else if(view.entity_type==='deals') { pipelineSearchQuery=String(f.query||''); pipelineViewMode=f.viewMode==='analysis'?'analysis':'board'; navigate('pipeline'); }
+    else if(view.entity_type==='tasks') { taskFilter=String(f.status||'Todas'); navigate('tasks'); }
+  };
+  window.deleteSavedView = async function(id) {
+    const view=(state.savedViews||[]).find(v=>Number(v.id)===Number(id)); if(!view)return;
+    if(!confirm(`Excluir o filtro salvo “${view.name}”?`))return;
+    try { await api('saved-views','DELETE',null,{id:Number(id)}); await loadRemoteState(); render(); showToast('Filtro removido.'); }
+    catch(e){showToast(e.message||'Não foi possível remover o filtro.');}
+  };
+  window.openContactTimeline = function(id) { selectedTimelineContactId=Number(id); navigate('followup'); };
+  window.selectTimelineContact = function(id) { selectedTimelineContactId=id?Number(id):null; render(); };
+
   window.contactsPage = function () {
     const filtered=(state.contacts||[]).filter(c=>{const q=(searchQuery||'').toLowerCase();const matches=!q||[c.name,c.company,c.email,c.phone,c.owner].some(v=>(v||'').toLowerCase().includes(q));return matches&&(contactFilter==='Todos'||c.status===contactFilter)});
     const statuses=['Todos','Novo lead','Qualificado','Em negociação','Cliente','Inativo'];
-    return `${pageHeader('RELACIONAMENTO','Contatos','Gerencie contatos salvos no banco de dados.',button('Importar CSV',"document.getElementById('csvFile').click()",false,'download')+button('Novo contato',"openModal('contact')",true,'plus'))}<input type="file" id="csvFile" class="hidden" accept=".csv,text/csv" onchange="importCSV(this)"><section class="card table-card"><div class="card-head"><div><div class="card-title">Base de contatos <span style="color:#858c92;font-weight:500">(${state.contacts.length})</span></div><div class="card-sub">Cadastros persistidos no Supabase.</div></div><button class="btn small ghost" onclick="exportCSV('contacts')">${ico('download',13)} Exportar CSV</button></div><div class="table-toolbar"><label class="search-box">${ico('search')}<input id="contactSearch" placeholder="Buscar nome, empresa ou e-mail..." value="${esc(searchQuery)}" oninput="searchContacts(this.value)"></label><select class="toolbar-select" onchange="setContactFilter(this.value)">${statuses.map(s=>`<option ${contactFilter===s?'selected':''}>${esc(s)}</option>`).join('')}</select><div class="toolbar-spacer"></div></div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${filtered.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Nenhum contato encontrado</strong>Cadastre um contato ou ajuste os filtros.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${filtered.length}</b> contato(s) do banco.</span></div></section>`;
+    return `${pageHeader('RELACIONAMENTO','Contatos','Gerencie contatos salvos no banco de dados.',button('Importar CSV',"document.getElementById('csvFile').click()",false,'download')+button('Novo contato',"openModal('contact')",true,'plus'))}<input type="file" id="csvFile" class="hidden" accept=".csv,text/csv" onchange="importCSV(this)"><section class="card table-card"><div class="card-head"><div><div class="card-title">Base de contatos <span style="color:#858c92;font-weight:500">(${state.contacts.length})</span></div><div class="card-sub">Cadastros persistidos no Supabase.</div></div><button class="btn small ghost" onclick="exportCSV('contacts')">${ico('download',13)} Exportar CSV</button></div><div class="table-toolbar"><label class="search-box">${ico('search')}<input id="contactSearch" placeholder="Buscar nome, empresa ou e-mail..." value="${esc(searchQuery)}" oninput="searchContacts(this.value)"></label><select class="toolbar-select" onchange="setContactFilter(this.value)">${statuses.map(s=>`<option ${contactFilter===s?'selected':''}>${esc(s)}</option>`).join('')}</select>${savedViewsMarkup('contacts')}<div class="toolbar-spacer"></div></div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${filtered.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Nenhum contato encontrado</strong>Cadastre um contato ou ajuste os filtros.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${filtered.length}</b> contato(s) do banco.</span></div></section>`;
   };
   const CONTACT_TOUCH_TYPES = new Set(['call','meeting','email']);
   const CONTACT_TASK_TYPES = new Set(['call','meeting','email','follow_up']);
@@ -1180,15 +1327,55 @@
       const testCards=blankTestCards.filter(c=>Number(c.stage_id)===Number(s.id)).map(c=>window.blankTestDealCard(c)).join('');
       return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${ds.length} · ${money(total)}</span></div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar oportunidade</button></section>`;
     }).join('');
-    const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar oportunidade, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span></div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
+    const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar oportunidade, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
     const board=`<div class="pipeline-board">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada; o card de teste não entra nos indicadores.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em aberto</div><div class="card-sub">Soma nominal das oportunidades que não foram ganhas ou perdidas.</div></div><strong>${money(deals.filter(dealIsOpen).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
     const actions=(pipelineViewMode==='board'?button('Card vazio (teste)','addBlankTestCard()',false,'plus'):'')+(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Nova oportunidade',"openModal('deal')",true,'target');
     return `${pageHeader('OPORTUNIDADES','Pipeline comercial','Acompanhe as oportunidades, identifique riscos e priorize o próximo contato.',actions)}${controls}${canManage&&pipelineViewMode==='board'?stageCreator:''}${pipelineViewMode==='analysis'?renderPipelineAnalysis(deals,stages):board}`;
   };
+  function localMidnight(date=new Date()) { const d=new Date(date); d.setHours(0,0,0,0); return d; }
+  function followupOverview() {
+    const now=Date.now(), today=localMidnight().getTime(), tomorrow=today+86400000;
+    const openTasks=(state.tasks||[]).filter(t=>!['Concluída','Cancelada'].includes(t.status));
+    const overdue=openTasks.filter(t=>t.due_at && new Date(String(t.due_at).replace(' ','T')).getTime()<today);
+    const dueToday=openTasks.filter(t=>t.due_at && new Date(String(t.due_at).replace(' ','T')).getTime()>=today && new Date(String(t.due_at).replace(' ','T')).getTime()<tomorrow);
+    const contacts=state.contacts||[];
+    const withoutNext=contacts.filter(c=>!openTasks.some(t=>Number(t.contact_id)===Number(c.id) || (t.deal_id && (state.deals||[]).some(d=>Number(d.id)===Number(t.deal_id)&&Number(d.contact_id)===Number(c.id)))));
+    const cold=contacts.filter(c=>{const dt=c.last_contact_at?new Date(c.last_contact_at).getTime():0;return !dt || now-dt>15*86400000;});
+    return {openTasks,overdue,dueToday,withoutNext,cold};
+  }
+  function timelineEventsForContact(contactId) {
+    const dealIds=new Set((state.deals||[]).filter(d=>Number(d.contact_id)===Number(contactId)).map(d=>Number(d.id)));
+    const events=[];
+    for(const a of (state.activities||[])) if(Number(a.contact_id)===Number(contactId) || (a.deal_id && dealIds.has(Number(a.deal_id)))) events.push({kind:'activity',title:a.title||'Atividade',body:a.body||'',when:a.created_at||a.updated_at,meta:`${a.type||'note'}${a.user_name?' · '+a.user_name:''}`,id:`a${a.id}`});
+    for(const t of (state.tasks||[])) if(Number(t.contact_id)===Number(contactId) || (t.deal_id && dealIds.has(Number(t.deal_id)))) events.push({kind:'task',title:t.title||'Tarefa',body:t.description||'',when:t.completed_at||t.updated_at||t.created_at||t.due_at,meta:`Tarefa · ${t.status}${t.due_at?' · prazo '+formatDateTime(t.due_at):''}`,id:`t${t.id}`});
+    for(const d of (state.deals||[])) if(Number(d.contact_id)===Number(contactId)) events.push({kind:'deal',title:d.title||'Oportunidade',body:d.description||'',when:d.updated_at||d.created_at,meta:`Oportunidade · ${d.stage||'Etapa não definida'}`,id:`d${d.id}`});
+    return events.sort((a,b)=>(new Date(b.when||0).getTime()||0)-(new Date(a.when||0).getTime()||0)).slice(0,100);
+  }
+  window.followupPage = function() {
+    const o=followupOverview();
+    const contacts=(state.contacts||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
+    const selected=contacts.find(c=>Number(c.id)===Number(selectedTimelineContactId))||null;
+    if(selectedTimelineContactId && !selected) selectedTimelineContactId=null;
+    const queue=o.openTasks.slice().sort((a,b)=>{
+      const aa=a.due_at?new Date(String(a.due_at).replace(' ','T')).getTime():Infinity;
+      const bb=b.due_at?new Date(String(b.due_at).replace(' ','T')).getTime():Infinity;
+      return aa-bb;
+    }).slice(0,14);
+    const eventList=selected?timelineEventsForContact(selected.id):[];
+    const eventIcon=kind=>kind==='task'?'calendar':kind==='deal'?'target':'clock';
+    const taskMarkup=queue.map(t=>`<div class="followup-task-row"><span class="followup-task-mark ${t.due_at&&new Date(String(t.due_at).replace(' ','T')).getTime()<localMidnight().getTime()?'overdue':''}">${ico(t.status==='Concluída'?'check':'calendar',15)}</span><div class="followup-task-copy"><strong>${esc(t.title)}</strong><small>${esc(t.related||t.contact_name||'Sem contato vinculado')} · ${esc(t.owner||t.assignee_name||'Sem responsável')}</small></div><div class="followup-task-date ${t.due_at&&new Date(String(t.due_at).replace(' ','T')).getTime()<localMidnight().getTime()?'overdue':''}">${esc(t.date?datePt(t.date):'Sem prazo')} ${esc(t.time||'')}</div><button class="icon-button" aria-label="Editar tarefa" onclick="openModal('task',${Number(t.id)})">${ico('dots',14)}</button></div>`).join('');
+    const timelineMarkup=eventList.map(e=>`<div class="followup-timeline-event"><span class="followup-timeline-icon">${ico(eventIcon(e.kind),15)}</span><div class="followup-timeline-copy"><strong>${esc(e.title)}</strong>${e.body?`<p>${esc(e.body)}</p>`:''}<small>${esc(e.meta)} · ${esc(formatDateTime(e.when))}</small></div></div>`).join('');
+    return `${pageHeader('ROTINA COMERCIAL','Acompanhamento','Veja retornos prioritários e o histórico completo de cada lead.',button('Nova tarefa',"openModal('task')",true,'plus')+button('Registrar interação',"openModal('activity')",false,'clock'))}
+      <div class="followup-metrics"><article class="followup-metric ${o.overdue.length?'critical':''}"><span>Retornos vencidos</span><strong>${o.overdue.length}</strong><small>Tarefas fora do prazo</small></article><article class="followup-metric ${o.dueToday.length?'attention':''}"><span>Para hoje</span><strong>${o.dueToday.length}</strong><small>Tarefas com prazo hoje</small></article><article class="followup-metric ${o.withoutNext.length?'attention':''}"><span>Leads sem próxima ação</span><strong>${o.withoutNext.length}</strong><small>Contato sem tarefa aberta vinculada</small></article><article class="followup-metric ${o.cold.length?'critical':''}"><span>Sem contato recente</span><strong>${o.cold.length}</strong><small>Mais de 15 dias ou sem registro</small></article></div>
+      <div class="followup-grid"><section class="card followup-panel"><div class="card-head"><div><div class="card-title">Próximas ações</div><div class="card-sub">Tarefas abertas ordenadas por prazo. Tarefas recorrentes geram a próxima ocorrência ao serem concluídas.</div></div>${button('Nova tarefa',"openModal('task')",false,'plus')}</div><div class="followup-task-list">${taskMarkup||'<div class="empty"><strong>Nenhuma tarefa pendente</strong>Crie um retorno ou reunião para organizar a rotina.</div>'}</div></section>
+      <section class="card followup-panel"><div class="card-head"><div><div class="card-title">Linha do tempo do lead</div><div class="card-sub">Atividades, tarefas e oportunidades ligadas ao contato.</div></div></div><div class="followup-timeline-filter"><label class="form-help" for="timelineContactSelect">Selecione um contato</label><select id="timelineContactSelect" class="toolbar-select" onchange="selectTimelineContact(this.value)"><option value="">Escolha um contato…</option>${contacts.map(c=>`<option value="${c.id}" ${selected&&Number(selected.id)===Number(c.id)?'selected':''}>${esc(c.name)}${c.company?' — '+esc(c.company):''}</option>`).join('')}</select>${selected?`<div class="timeline-contact-card"><div class="avatar">${esc(selected.initials||initials(selected.name))}</div><div><strong>${esc(selected.name)}</strong><small>${esc(selected.company||'Sem empresa')} · ${esc(selected.owner||'Sem responsável')}</small></div><button class="btn small ghost" onclick="openModal('contact',${selected.id})">Editar contato</button></div><div class="followup-timeline-list">${timelineMarkup||'<div class="empty">Nenhuma atividade, tarefa ou oportunidade registrada para este lead.</div>'}</div>`:'<div class="empty"><strong>Escolha um lead</strong>Veja as interações e os próximos passos relacionados a ele.</div>'}</div></section></div>
+      <section class="card followup-risk-panel"><div class="card-head"><div><div class="card-title">Leads que merecem atenção</div><div class="card-sub">Sem próxima ação ou sem contato recente.</div></div><button class="btn small ghost" onclick="navigate('pipeline')">Abrir funil ${ico('arrow',13)}</button></div><div class="followup-risk-list">${[...new Map([...o.withoutNext,...o.cold].map(c=>[Number(c.id),c])).values()].slice(0,8).map(c=>`<button class="followup-risk-item" onclick="openContactTimeline(${c.id})"><span class="avatar">${esc(c.initials||initials(c.name))}</span><span><strong>${esc(c.name)}</strong><small>${esc(c.company||'Sem empresa')}</small></span><span class="followup-risk-tag">${o.withoutNext.some(x=>Number(x.id)===Number(c.id))?'Sem próxima ação':'Sem contato recente'}</span><span class="followup-risk-arrow">${ico('arrow',14)}</span></button>`).join('')||'<div class="empty">Nenhum lead para destacar com os critérios atuais.</div>'}</div></section>`;
+  };
+
   window.tasksPage = function () {
     const tasks=(state.tasks||[]).filter(t=>taskFilter==='Todas'||(taskFilter==='Pendentes'?t.status!=='Concluída'&&t.status!=='Cancelada':taskFilter==='Concluídas'?t.status==='Concluída':t.date && t.date<new Date().toISOString().slice(0,10)&&t.status!=='Concluída'));
-    return `${pageHeader('ROTINA COMERCIAL','Tarefas','Organize retornos, ligações e reuniões.',button('Nova tarefa',"openModal('task')",true,'plus'))}<section class="card"><div class="card-head"><div><div class="card-title">Lista de tarefas</div><div class="card-sub">As alterações são salvas no Supabase.</div></div><div style="text-align:right"><div style="font-size:20px;font-weight:750">${state.tasks.filter(t=>t.status!=='Concluída'&&t.status!=='Cancelada').length}</div><div style="font-size:10px;color:var(--muted)">pendentes</div></div></div><div style="padding:0 19px 14px"><div class="task-status-tabs">${['Todas','Pendentes','Concluídas','Atrasadas'].map(x=>`<button class="${taskFilter===x?'active':''}" onclick="setTaskFilter('${x}')">${x}</button>`).join('')}</div></div><div style="padding:0 19px 10px"><div class="task-row" style="border-top:1px solid #282c30;color:#747c82;font-size:10px;text-transform:uppercase;letter-spacing:.08em"><div></div><div>Tarefa / vínculo</div><div class="task-owner">Responsável</div><div>Prazo</div><div class="task-priority">Prioridade</div><div></div></div>${tasks.map(taskPageRow).join('')||'<div class="empty"><strong>Nenhuma tarefa por aqui</strong>Crie uma tarefa para organizar os próximos passos.</div>'}</div></section>`;
+    return `${pageHeader('ROTINA COMERCIAL','Tarefas','Organize retornos, ligações e reuniões.',button('Nova tarefa',"openModal('task')",true,'plus'))}<section class="card"><div class="card-head"><div><div class="card-title">Lista de tarefas</div><div class="card-sub">As alterações são salvas no Supabase.</div></div><div style="text-align:right"><div style="font-size:20px;font-weight:750">${state.tasks.filter(t=>t.status!=='Concluída'&&t.status!=='Cancelada').length}</div><div style="font-size:10px;color:var(--muted)">pendentes</div></div></div><div style="padding:0 19px 14px;display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap"><div class="task-status-tabs">${['Todas','Pendentes','Concluídas','Atrasadas'].map(x=>`<button class="${taskFilter===x?'active':''}" onclick="setTaskFilter('${x}')">${x}</button>`).join('')}</div>${savedViewsMarkup('tasks')}</div><div style="padding:0 19px 10px"><div class="task-row" style="border-top:1px solid #282c30;color:#747c82;font-size:10px;text-transform:uppercase;letter-spacing:.08em"><div></div><div>Tarefa / vínculo</div><div class="task-owner">Responsável</div><div>Prazo</div><div class="task-priority">Prioridade</div><div></div></div>${tasks.map(taskPageRow).join('')||'<div class="empty"><strong>Nenhuma tarefa por aqui</strong>Crie uma tarefa para organizar os próximos passos.</div>'}</div></section>`;
   };
   window.activitiesPage = function () {
     return `${pageHeader('HISTÓRICO','Atividades','Histórico registrado no servidor.',button('Registrar atividade',"openModal('activity')",true,'plus'))}<section class="card"><div class="card-head"><div><div class="card-title">Linha do tempo</div><div class="card-sub">Interações e notas comerciais</div></div></div><div class="activity-list">${state.activities.map(activityItem).join('')||'<div class="empty">Nenhuma atividade registrada.</div>'}</div></section>`;
@@ -1215,6 +1402,37 @@
   function ownerOptions() { return (state.users||[]).filter(u=>Number(u.is_active)!==0).map(u=>({value:u.id,label:u.name+(u.role==='admin'?' · Admin':u.role==='manager'?' · Gerente':'')})); }
   function contactsOptions() { return (state.contacts||[]).map(c=>({value:c.id,label:c.name+(c.company?' — '+c.company:'')})); }
 
+  function valueForCustomField(entityType, recordId, fieldId) {
+    if (!recordId) return null;
+    const found=(state.customFieldValues||[]).find(v=>v.entity_type===entityType && Number(v.record_id)===Number(recordId) && Number(v.field_id)===Number(fieldId));
+    return found ? found.value : null;
+  }
+  function customFieldsMarkup(entityType, recordId=null) {
+    const definitions=(state.customFields||[]).filter(f=>f.entity_type===entityType && f.is_active!==false);
+    if(!definitions.length) return '';
+    return `<div class="field-full custom-fields-block"><div class="custom-fields-heading">Campos personalizados <span>Configurados pela empresa</span></div><div class="form-grid">${definitions.map(f=>{
+      const name=`custom_field_${f.id}`, value=valueForCustomField(entityType,recordId,f.id), label=esc(f.label);
+      if(f.field_type==='checkbox') return `<div class="form-field"><label class="custom-check-label"><input type="checkbox" name="${name}" ${value===true||value==='true'?'checked':''}> ${label}</label></div>`;
+      if(f.field_type==='select') { const opts=Array.isArray(f.options)?f.options:[]; return formField(label,name,selectMarkup(name,[{value:'',label:'Selecione'},...opts.map(x=>({value:String(x),label:String(x)}))],value===null?'':String(value),'Selecione')); }
+      const type=({text:'text',number:'number',date:'date',email:'email',url:'url'})[f.field_type]||'text';
+      return formField(label,name,inputMarkup(name,value===null?'':String(value),type,''));
+    }).join('')}</div></div>`;
+  }
+  async function saveCustomFieldValues(entityType, recordId, form) {
+    const defs=(state.customFields||[]).filter(f=>f.entity_type===entityType && f.is_active!==false);
+    for (const f of defs) {
+      const el=form.elements.namedItem(`custom_field_${f.id}`);
+      if(!el) continue;
+      let value = f.field_type==='checkbox' ? Boolean(el.checked) : (String(el.value||'').trim()||null);
+      if (f.field_type==='number' && value!==null) {
+        const n=Number(value); if(!Number.isFinite(n)) throw new Error(`O campo “${f.label}” precisa conter um número.`); value=n;
+      }
+      if (f.field_type==='email' && value && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) throw new Error(`Confira o e-mail no campo “${f.label}”.`);
+      if (f.field_type==='url' && value) { try { const url=new URL(value); if(!['http:','https:'].includes(url.protocol)) throw new Error(); } catch(_) { throw new Error(`Informe um link válido no campo “${f.label}”.`); } }
+      await api('custom-field-values','POST',{entity_type:entityType,field_id:Number(f.id),record_id:Number(recordId),value});
+    }
+  }
+
   window.openModal = function(type,id=null,stage=null) {
     modalType=type; editingId=id;
     const arr={contact:state.contacts,deal:state.deals,task:state.tasks,activity:state.activities,user:state.users}[type]||[];
@@ -1225,7 +1443,7 @@
     const contactControl=selectMarkup('contact_id',contactsOptions(),item?.contact_id||'','Selecione um contato');
     if(type==='contact') {
       title=item?'Editar contato':'Novo contato'; subtitle='Os dados serão gravados no banco Supabase.';
-      fields=`<div class="form-grid">${formField('Nome completo *','name',inputMarkup('name',item?.name||'','text','Nome do contato'))}${formField('Empresa','company',inputMarkup('company',item?.company||'','text','Empresa'))}${formField('E-mail','email',inputMarkup('email',item?.email||'','email','nome@empresa.com.br'))}${formField('Telefone','phone',inputMarkup('phone',item?.phone||'','tel','Telefone'))}${formField('Status','status',selectMarkup('status',['Novo lead','Qualificado','Em negociação','Cliente','Inativo'].map(x=>({value:x,label:x})),item?.status||'Novo lead'))}${formField('Responsável','owner_id',ownerControl)}${formField('Origem','source',selectMarkup('source',['Site','Indicação','LinkedIn','Evento','Importação','Outro'].map(x=>({value:x,label:x})),item?.source||'','Selecione a origem'))}${formField('Observações','notes',textareaMarkup('notes',item?.notes||'','Observações relevantes'),true)}</div>`;
+      fields=`<div class="form-grid">${formField('Nome completo *','name',inputMarkup('name',item?.name||'','text','Nome do contato'))}${formField('Empresa','company',inputMarkup('company',item?.company||'','text','Empresa'))}${formField('E-mail','email',inputMarkup('email',item?.email||'','email','nome@empresa.com.br'))}${formField('Telefone','phone',inputMarkup('phone',item?.phone||'','tel','Telefone'))}${formField('Status','status',selectMarkup('status',['Novo lead','Qualificado','Em negociação','Cliente','Inativo'].map(x=>({value:x,label:x})),item?.status||'Novo lead'))}${formField('Responsável','owner_id',ownerControl)}${formField('Origem','source',selectMarkup('source',['Site','Indicação','LinkedIn','Evento','Importação','Outro'].map(x=>({value:x,label:x})),item?.source||'','Selecione a origem'))}${formField('Observações','notes',textareaMarkup('notes',item?.notes||'','Observações relevantes'),true)}${customFieldsMarkup('contacts',item?.id)}</div>`;
     } else if(type==='deal') {
       title=item?'Editar oportunidade':'Nova oportunidade'; subtitle='Associe um contato e escolha o responsável. A etapa é definida pela coluna do funil.';
       const pipelineId=item?.pipeline_id || state.pipelines?.find(p=>Number(p.is_default)===1)?.id || state.pipelines?.[0]?.id || '';
@@ -1235,14 +1453,15 @@
       const selectedStage=item?.stage_id || stageFromCaller?.value || stageOptions.find(s=>!((state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_won || (state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_lost))?.value || stageOptions[0]?.value || '';
       const retainedValue = item ? (item.value ?? 0) : 0;
       const retainedClose = item ? (item.close || item.expected_close_date || '') : '';
-      fields=`<div class="form-grid">${formField('Nome da oportunidade *','title',inputMarkup('title',item?.title||'','text','Ex.: Projeto de expansão'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}<input type="hidden" name="value" value="${esc(retainedValue)}"><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Cadastre um contato antes de criar uma oportunidade.</p>':''}<p class="form-help">O valor e a previsão de fechamento são preservados, mas não precisam ser preenchidos aqui. Você pode escolher a etapa no formulário ou arrastar o card no funil.</p>`;
+      fields=`<div class="form-grid">${formField('Nome da oportunidade *','title',inputMarkup('title',item?.title||'','text','Ex.: Projeto de expansão'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<input type="hidden" name="value" value="${esc(retainedValue)}"><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Cadastre um contato antes de criar uma oportunidade.</p>':''}<p class="form-help">O valor e a previsão de fechamento são preservados, mas não precisam ser preenchidos aqui. Você pode escolher a etapa no formulário ou arrastar o card no funil.</p>`;
     } else if(type==='task') {
       title=item?'Editar tarefa':'Nova tarefa'; subtitle='Defina o próximo passo e salve para a equipe.';
       const statusOpts=['Pendente','Em andamento','Concluída','Cancelada'].map(x=>({value:x,label:x}));
       const typeOpts=['Tarefa','Ligação','E-mail','Reunião','Retorno'].map(x=>({value:x,label:x}));
       const priorityOpts=['Baixa','Média','Alta'].map(x=>({value:x,label:x}));
       const today=new Date().toISOString().slice(0,10);
-      fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title',item?.title||'','text','Ex.: Retornar contato'))}${formField('Tipo','type',selectMarkup('type',typeOpts,item?.type||'Tarefa'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],item?.contact_id||'','Sem contato'))}${formField('Responsável','assigned_to',selectMarkup('assigned_to',ownerOptions(),item?.assigned_to||currentUser?.id||'','Selecione responsável'))}${formField('Data','date',inputMarkup('date',item?.date||today,'date'))}${formField('Horário','time',inputMarkup('time',item?.time||'09:00','time'))}${formField('Prioridade','priority',selectMarkup('priority',priorityOpts,item?.priority||'Média'))}${formField('Status','status',selectMarkup('status',statusOpts,item?.status||'Pendente'))}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da tarefa'),true)}</div>`;
+      const recurrenceOpts=[{value:'none',label:'Não repetir'},{value:'daily',label:'Todos os dias'},{value:'weekly',label:'Toda semana'},{value:'biweekly',label:'A cada 2 semanas'},{value:'monthly',label:'Todo mês'}];
+      fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title',item?.title||'','text','Ex.: Retornar contato'))}${formField('Tipo','type',selectMarkup('type',typeOpts,item?.type||'Tarefa'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],item?.contact_id||'','Sem contato'))}${formField('Responsável','assigned_to',selectMarkup('assigned_to',ownerOptions(),item?.assigned_to||currentUser?.id||'','Selecione responsável'))}${formField('Data','date',inputMarkup('date',item?.date||today,'date'))}${formField('Horário','time',inputMarkup('time',item?.time||'09:00','time'))}${formField('Prioridade','priority',selectMarkup('priority',priorityOpts,item?.priority||'Média'))}${formField('Status','status',selectMarkup('status',statusOpts,item?.status||'Pendente'))}${formField('Repetição automática','recurrence_rule',selectMarkup('recurrence_rule',recurrenceOpts,item?.recurrence_rule||'none'))}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da tarefa'),true)}${customFieldsMarkup('tasks',item?.id)}</div><p class="form-help">Ao concluir uma tarefa recorrente, o CRM cria a próxima ocorrência automaticamente. Não marque como recorrente se cada tarefa precisar de uma data planejada manualmente.</p>`;
     } else if(type==='activity') {
       title='Registrar atividade'; subtitle='Registre uma interação ou observação no histórico.';
       fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title','','text','Ex.: Ligação de acompanhamento'))}${formField('Tipo','type',selectMarkup('type',['note','call','meeting','email','stage_change','status_change','other'].map(x=>({value:x,label:({note:'Nota',call:'Ligação',meeting:'Reunião',email:'E-mail',stage_change:'Mudança de etapa',status_change:'Mudança de status',other:'Outro'})[x]})),'note'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],'','Sem contato'))}${formField('Descrição','body',textareaMarkup('body','','O que aconteceu?'),true)}</div><p class="form-help">Para atualizar o indicador de contato do funil, registre uma Ligação, Reunião ou E-mail. Uma Nota genérica não conta como interação.</p>`;
@@ -1269,7 +1488,7 @@
         if(!d.name?.trim()) throw new Error('Informe o nome do contato.');
         const payload={name:d.name.trim(),company_name:d.company||null,email:d.email||null,phone:d.phone||null,status:statusToApi[d.status]||'lead',owner_id:Number(d.owner_id)||Number(currentUser.id),source:d.source||null,notes:d.notes||null};
         const result=editingId?await api('contacts','PUT',{...payload,id:editingId}):await api('contacts','POST',payload);
-        const id=editingId||result.id; await logActivity(editingId?'Contato atualizado':'Novo contato cadastrado',d.name,'note',id,null);
+        const id=editingId||result.id; await saveCustomFieldValues('contacts',id,form); await logActivity(editingId?'Contato atualizado':'Novo contato cadastrado',d.name,'note',id,null);
         showToast(editingId?'Contato atualizado.':'Contato cadastrado.');
       } else if(modalType==='deal') {
         if(!d.title?.trim()||!d.contact_id) throw new Error('Informe o título da oportunidade e selecione um contato.');
@@ -1280,13 +1499,16 @@
         const previousStageId=previousDeal?Number(previousDeal.stage_id):null;
         const payload={title:d.title.trim(),contact_id:Number(d.contact_id),pipeline_id:pipelineId,stage_id:Number(selectedStage.id),value:Number(d.value),description:d.description||null,owner_id:Number(d.owner_id)||Number(currentUser.id),expected_close_date:d.expected_close_date||null,lost_reason:d.lost_reason||null};
         const result=editingId?await api('deals','PUT',{...payload,id:editingId}):await api('deals','POST',payload);
+        await saveCustomFieldValues('deals',editingId||result.id,form);
         await logActivity(editingId?'Oportunidade atualizada':'Oportunidade criada',d.title,'note',Number(d.contact_id),editingId||result.id);
         if(previousDeal && previousStageId!==Number(selectedStage.id)) await logActivity('Oportunidade movida',`${d.title}: ${previousDeal.stage||'Etapa anterior'} → ${selectedStage.name}`,'stage_change',Number(d.contact_id),Number(editingId));
         showToast(editingId?'Oportunidade atualizada.':'Oportunidade criada.');
       } else if(modalType==='task') {
         if(!d.title?.trim()) throw new Error('Informe o título da tarefa.');
-        const payload={title:d.title.trim(),description:d.description||null,type:taskTypeToApi[d.type]||'other',status:taskStatusToApi[d.status]||'pending',priority:priorityToApi[d.priority]||'medium',due_at:toDbDateTime(d.date,d.time),assigned_to:Number(d.assigned_to)||Number(currentUser.id),contact_id:d.contact_id?Number(d.contact_id):null};
+        const payload={title:d.title.trim(),description:d.description||null,type:taskTypeToApi[d.type]||'other',status:taskStatusToApi[d.status]||'pending',priority:priorityToApi[d.priority]||'medium',due_at:toDbDateTime(d.date,d.time),assigned_to:Number(d.assigned_to)||Number(currentUser.id),contact_id:d.contact_id?Number(d.contact_id):null,recurrence_rule:d.recurrence_rule||'none'};
+        if(payload.recurrence_rule!=='none'&&!payload.due_at) throw new Error('Defina uma data para a tarefa recorrente.');
         const result=editingId?await api('tasks','PATCH',{...payload,id:editingId}):await api('tasks','POST',payload);
+        await saveCustomFieldValues('tasks',editingId||result.id,form);
         await logActivity(editingId?'Tarefa atualizada':'Tarefa criada',d.title,'note',d.contact_id?Number(d.contact_id):null,null);
         showToast(editingId?'Tarefa atualizada.':'Tarefa criada.');
       } else if(modalType==='activity') {
@@ -1379,6 +1601,14 @@
       contents=`<h3 class="settings-section-title">Dados da empresa</h3><p class="settings-section-desc">Identidade visual e informações da empresa vinculada a esta instalação.</p><div class="company-logo-field"><div class="company-logo-preview" id="companyLogoPreview">${companyLogoPreviewMarkup()}</div><div class="company-logo-controls"><label for="settingLogoFile" style="font-size:11px;font-weight:750">Logo da empresa</label><input id="settingLogoFile" type="file" accept="image/png,image/jpeg,image/webp" onchange="previewCompanyLogo(this)"><span class="company-logo-preview-note">PNG, JPG ou WebP. Máximo de 5 MB. A imagem é reduzida no navegador antes de ser armazenada como configuração da empresa.</span><div><button class="btn ghost small" type="button" onclick="removeCompanyLogo()">Remover logo</button></div></div></div><div class="form-grid"><div class="form-field"><label>Nome da empresa</label><input id="settingCompany" value="${esc(name)}" placeholder="Sua empresa" oninput="updateCompanyInitialPreview(this.value)"></div><div class="form-field"><label>E-mail de contato</label><input id="settingEmail" type="email" value="${esc(email)}" placeholder="contato@empresa.com.br"></div><div class="form-field"><label>Telefone</label><input id="settingPhone" value="${esc(phone)}" placeholder="Telefone comercial"></div><div class="form-field"><label>Fuso horário</label><select id="settingTimezone"><option value="America/Sao_Paulo" ${timezone==='America/Sao_Paulo'?'selected':''}>America/Sao_Paulo</option><option value="UTC" ${timezone==='UTC'?'selected':''}>UTC</option></select></div><div class="form-field"><label>Moeda</label><select id="settingCurrency"><option value="BRL" ${currency==='BRL'?'selected':''}>Real brasileiro (BRL)</option><option value="USD" ${currency==='USD'?'selected':''}>Dólar americano (USD)</option><option value="EUR" ${currency==='EUR'?'selected':''}>Euro (EUR)</option></select></div></div><div style="margin-top:20px">${button('Salvar alterações','saveSettings()',true,'check')}</div>`;
     } else if(activeSettings==='usuarios') {
       contents=`<h3 class="settings-section-title">Usuários e acesso</h3><p class="settings-section-desc">Acesso à instalação e perfil de cada integrante.</p>${canManage?`<div style="margin-bottom:15px"><p class="form-help">Para adicionar pessoas: Supabase → Authentication → Users → Add user. O perfil será criado automaticamente pelo banco. Não habilite cadastro público nesta instalação.</p></div>`:''}<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th>${canManage?'<th>Ação</th>':''}</tr></thead><tbody>${(state.users||[]).map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email||'')}</td><td>${esc(({admin:'Administrador',manager:'Gerente',sales:'Vendedor'})[u.role]||u.role)}</td><td>${Number(u.is_active)!==0?'Ativo':'Desativado'}</td>${canManage?`<td>${Number(u.id)!==Number(currentUser.id)?`<button class="inline-action" onclick="toggleUser(${u.id},${Number(u.is_active)!==0?0:1})">${Number(u.is_active)!==0?'Desativar':'Ativar'}</button>`:'Você'}</td>`:''}</tr>`).join('')||'<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>'}</tbody></table></div><p class="form-help">As senhas são administradas pelo Supabase Auth e nunca aparecem nesta tela.</p>`;
+    } else if(activeSettings==='filtros') {
+      const views=(state.savedViews||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
+      const viewRows=views.map(v=>`<div class="custom-field-row"><div><strong>${esc(v.name)}</strong><small>${esc(({contacts:'Contatos',deals:'Oportunidades',tasks:'Tarefas'})[v.entity_type]||v.entity_type)} · ${v.is_shared?'Compartilhado com a equipe':'Pessoal'}</small></div><button class="btn small ghost" onclick="applySavedView('${Number(v.id)}')">Abrir filtro</button><div class="custom-field-row-actions"><button class="btn small ghost" onclick="deleteSavedView(${Number(v.id)})">Excluir</button></div></div>`).join('');
+      contents=`<h3 class="settings-section-title">Filtros salvos</h3><p class="settings-section-desc">Guarde combinações de busca e situação para voltar rapidamente às listas que você usa. O administrador também pode compartilhar filtros com a equipe.</p><div class="custom-field-list">${viewRows||'<div class="empty"><strong>Nenhum filtro salvo</strong>Abra Contatos, Funil ou Tarefas e use “Salvar filtro” para guardar uma visualização.</div>'}</div>`;
+    } else if(activeSettings==='campos') {
+      const definitions=(state.customFields||[]).slice().sort((a,b)=>a.position-b.position);
+      const rows=definitions.map(f=>`<div class="custom-field-row"><div><strong>${esc(f.label)}</strong><small>${esc(f.entity_type)} · ${esc(f.field_type)} · ${esc(f.field_key)}</small></div><span class="status ${f.is_active?'light':'muted'}">${f.is_active?'Ativo':'Desativado'}</span><div class="custom-field-row-actions">${canManage?`<button class="btn small ghost" onclick="toggleCustomField(${Number(f.id)},${f.is_active?0:1})">${f.is_active?'Desativar':'Ativar'}</button>`:''}</div></div>`).join('');
+      contents=`<h3 class="settings-section-title">Campos personalizados</h3><p class="settings-section-desc">Crie campos para registrar informações específicas da sua operação em contatos, oportunidades e tarefas. Os campos ficam disponíveis nos formulários correspondentes.</p>${canManage?`<form class="custom-field-create" onsubmit="createCustomField(event)"><div class="form-grid"><div class="form-field"><label>Nome do campo</label><input name="label" maxlength="80" required placeholder="Ex.: Segmento do negócio"></div><div class="form-field"><label>Aplicar em</label><select name="entity_type"><option value="contacts">Contatos</option><option value="deals">Oportunidades</option><option value="tasks">Tarefas</option></select></div><div class="form-field"><label>Tipo de campo</label><select name="field_type" onchange="toggleCustomFieldOptions(this)"><option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="select">Lista de opções</option><option value="checkbox">Caixa de seleção</option><option value="email">E-mail</option><option value="url">Link</option></select></div><div class="form-field custom-field-options-wrap" hidden><label>Opções (separadas por vírgula)</label><input name="options" placeholder="Ex.: Pequeno, Médio, Grande"></div></div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">${ico('plus',14)} Criar campo</button></div></form>`:'<p class="form-help">Somente administradores podem criar ou desativar campos.</p>'}<div class="custom-field-list">${rows||'<div class="empty">Nenhum campo personalizado foi criado ainda.</div>'}</div><p class="form-help">Desativar um campo preserva os valores históricos. Seus registros continuam no banco.</p>`;
     } else if(activeSettings==='funil') {
       const pipelineId=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id||0);
       const stages=(state.pipelineStages||[]).filter(s=>!pipelineId||Number(s.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
@@ -1389,8 +1619,27 @@
     } else {
       contents=`<h3 class="settings-section-title">Licença e versão</h3><p class="settings-section-desc">Informações desta instalação do CRM.</p><div class="card" style="padding:18px;background:var(--panel2)"><div class="eyebrow">NEXO CRM</div><div style="font-size:20px;font-weight:750;margin:6px 0">Versão 0.5 · Logo da empresa e navegação responsiva</div><p class="card-sub" style="line-height:1.7">Interface conectada ao Supabase Auth e PostgreSQL. Antes de comercializar, finalize testes de segurança, auditoria, backups e permissões.</p></div>`;
     }
-    return `${pageHeader('PREFERÊNCIAS','Configurações','Personalize a aparência e administre o CRM.')}<div class="settings-layout"><aside class="card settings-nav">${[['empresa','Dados da empresa'],['aparencia','Aparência e cores'],['usuarios','Usuários e acessos'],['funil','Colunas do funil'],['dados','Dados e backups'],['licenca','Licença e versão']].map(([k,v])=>`<button class="settings-tab ${activeSettings===k?'active':''}" onclick="setSettingsTab('${k}')">${v}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
+    return `${pageHeader('PREFERÊNCIAS','Configurações','Personalize a aparência e administre o CRM.')}<div class="settings-layout"><aside class="card settings-nav">${[['empresa','Dados da empresa'],['aparencia','Aparência e cores'],['usuarios','Usuários e acessos'],['filtros','Filtros salvos'],['campos','Campos personalizados'],['funil','Colunas do funil'],['dados','Dados e backups'],['licenca','Licença e versão']].map(([k,v])=>`<button class="settings-tab ${activeSettings===k?'active':''}" onclick="setSettingsTab('${k}')">${v}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
   };
+  window.toggleCustomFieldOptions = function(select) {
+    const wrap=select?.closest('form')?.querySelector('.custom-field-options-wrap');
+    if(wrap) wrap.hidden=select.value!=='select';
+  };
+  window.createCustomField = async function(event) {
+    event.preventDefault(); if(currentUser?.role!=='admin'){showToast('Somente o administrador pode criar campos.');return;}
+    const form=event.target, data=Object.fromEntries(new FormData(form).entries());
+    const options=String(data.options||'').split(',').map(x=>x.trim()).filter(Boolean);
+    try {
+      await api('custom-fields','POST',{label:data.label,entity_type:data.entity_type,field_type:data.field_type,options});
+      await loadRemoteState(); render(); showToast('Campo personalizado criado.');
+    } catch(e) { showToast(e.message||'Não foi possível criar o campo.'); }
+  };
+  window.toggleCustomField = async function(id,active) {
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode alterar campos.');return;}
+    try { if(active) { await api('custom-fields','PATCH',{id:Number(id),is_active:true}); } else { await api('custom-fields','DELETE',null,{id:Number(id)}); } await loadRemoteState(); render(); showToast(active?'Campo ativado.':'Campo desativado.'); }
+    catch(e){showToast(e.message||'Não foi possível alterar o campo.');}
+  };
+
   window.toggleUser = async function(id,active) {
     if(!confirm(active?'Ativar este usuário?':'Desativar este usuário?'))return;
     try{await api('users','PATCH',{id,is_active:!!active});await loadRemoteState();render();showToast(active?'Usuário ativado.':'Usuário desativado.');}catch(e){showToast(e.message||'Não foi possível alterar o usuário.');}
@@ -1450,6 +1699,10 @@
     if(open) panel.scrollIntoView({behavior:'smooth',block:'nearest'});
   };
 
+  window.navLabel = function(page) {
+    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Relatórios',settings:'Configurações'})[page] || 'Visão geral';
+  };
+
   // Renderização explícita: evita conflitos com os handlers antigos do protótipo inline.
   window.render = function() {
     const target = document.getElementById('mainContent');
@@ -1460,6 +1713,7 @@
       whatsapp: window.whatsappPage,
       pipeline: window.pipelinePage,
       tasks: window.tasksPage,
+      followup: window.followupPage,
       activities: window.activitiesPage,
       reports: window.reportsPage,
       settings: window.settingsPage
@@ -1488,7 +1742,7 @@
   // A navegação usada pelos botões é registrada aqui, depois das telas reais do Supabase.
   // Isso impede que a função antiga da prévia HTML sobrescreva o fluxo de navegação.
   window.navigate = function(page) {
-    const allowed = ['dashboard','contacts','whatsapp','pipeline','tasks','activities','reports','settings'];
+    const allowed = ['dashboard','contacts','whatsapp','pipeline','tasks','followup','activities','reports','settings'];
     if (!allowed.includes(page)) {
       console.warn('[NEXO CRM] Rota desconhecida:', page);
       return;
@@ -1497,7 +1751,7 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     const breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) {
-      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',activities:'Atividades',reports:'Relatórios',settings:'Configurações'};
+      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Relatórios',settings:'Configurações'};
       breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
     }
     const sidebar = document.getElementById('sidebar');
