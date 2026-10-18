@@ -19,6 +19,7 @@
   let selectedTimelineContactId = null;
   let releaseNotesVisible = false;
   let activeSavedViewId = '';
+  let analyticsRange = '12m';
 
   const statusToApi = {
     'Novo lead': 'lead', 'Qualificado': 'prospect', 'Em negociação': 'negotiation',
@@ -610,6 +611,17 @@
     {name:'Preto',hex:'#22262c'}
   ];
   function cleanHex(value) { return /^#[0-9a-fA-F]{6}$/.test(String(value||'')) ? String(value) : '#24466f'; }
+  function mixHexColor(accentHex, baseHex, accentWeight) {
+    const a=String(accentHex||'#24466f').replace('#','');
+    const b=String(baseHex||'#151a22').replace('#','');
+    if(a.length!==6||b.length!==6)return baseHex;
+    const w=Math.min(1,Math.max(0,Number(accentWeight)||0));
+    const out=[0,2,4].map(i=>{
+      const av=parseInt(a.slice(i,i+2),16),bv=parseInt(b.slice(i,i+2),16);
+      return Math.round(av*w+bv*(1-w)).toString(16).padStart(2,'0');
+    }).join('');
+    return '#'+out;
+  }
   function applyAppearance(theme, accent, remember=true) {
     const safeTheme = theme === 'light' ? 'light' : 'dark';
     const safeAccent = cleanHex(accent);
@@ -626,13 +638,31 @@
     const color = safeAccent.slice(1);
     const rgb = [0,2,4].map(i=>parseInt(color.slice(i,i+2),16)).join(',');
     document.documentElement.style.setProperty('--accent-rgb', rgb);
+
+    // As superfícies usam uma mistura sutil da cor escolhida com bases neutras.
+    // A ideia é evitar cinza esverdeado fixo: azul gera cinza azulado, roxo cinza arroxeado, etc.
+    const dark = safeTheme === 'dark';
+    const surfaces = {
+      '--bg': mixHexColor(safeAccent, dark ? '#0a0d12' : '#f5f7fa', dark ? .025 : .025),
+      '--side': mixHexColor(safeAccent, dark ? '#10141b' : '#ffffff', dark ? .035 : .035),
+      '--panel': mixHexColor(safeAccent, dark ? '#151a22' : '#ffffff', dark ? .045 : .025),
+      '--panel2': mixHexColor(safeAccent, dark ? '#1a2029' : '#f5f7fb', dark ? .105 : .065),
+      '--line': mixHexColor(safeAccent, dark ? '#29313d' : '#dce3ec', dark ? .13 : .10),
+      '--line2': mixHexColor(safeAccent, dark ? '#384351' : '#cbd5e1', dark ? .17 : .12),
+      '--text': dark ? '#eef2f7' : '#1d2734',
+      '--muted': dark ? '#a0a9b5' : '#687586',
+      '--dim': dark ? '#74808e' : '#8b96a5',
+      '--white': dark ? '#ffffff' : '#1d2734',
+      '--soft': mixHexColor(safeAccent, dark ? '#d9e1eb' : '#e6edf5', dark ? .08 : .07)
+    };
+    Object.entries(surfaces).forEach(([key,value])=>document.body.style.setProperty(key,value));
     if (remember) {
       try { localStorage.setItem('nexo-crm-theme',safeTheme); localStorage.setItem('nexo-crm-accent',safeAccent); } catch (_) {}
     }
   }
   function applySavedAppearance() {
     let localTheme='dark',localAccent='#24466f';
-    try { localTheme=localStorage.getItem('nexo-crm-theme')||localTheme; const storedAccent=localStorage.getItem('nexo-crm-accent'); localAccent=(storedAccent && storedAccent.toLowerCase()!=='#788d52')?storedAccent:localAccent; } catch (_) {}
+    try { localTheme=localStorage.getItem('nexo-crm-theme')||localTheme; const storedAccent=localStorage.getItem('nexo-crm-accent'); localAccent=storedAccent||localAccent; } catch (_) {}
     applyAppearance(companySettings?.theme_mode||localTheme,companySettings?.accent_color||localAccent,false);
   }
   window.previewNexoAppearance = function() {
@@ -748,7 +778,7 @@
     let overlay=document.getElementById('nexoReleaseBackdrop');
     if(!overlay) {
       overlay=document.createElement('div'); overlay.id='nexoReleaseBackdrop'; overlay.className='nexo-release-backdrop'; overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.setAttribute('aria-labelledby','nexoReleaseTitle');
-      overlay.innerHTML=`<section class="nexo-release-dialog"><header class="nexo-release-head"><span class="nexo-release-mark">${ico('clock',21)}</span><div style="flex:1;min-width:0"><h2 id="nexoReleaseTitle">Novidades do NEXO CRM</h2><p>Patch 1.1.0-alpha · Fase 2 — Acompanhamento e automações iniciais*</p></div><button class="icon-button" aria-label="Fechar novidades" onclick="closeReleaseNotes()">${ico('x',18)}</button></header><div class="nexo-release-body"><div class="nexo-release-section"><strong>O que mudou nesta atualização</strong><ul><li>Nova tela <b>Acompanhamento</b> com tarefas próximas, atrasadas, leads sem próxima ação e leads sem contato recente.</li><li>Tarefas recorrentes: ao concluir uma tarefa recorrente, o banco cria a próxima ocorrência de forma transacional.</li><li>Campos personalizados para contatos, oportunidades e tarefas, administrados nas Configurações.</li><li>Filtros salvos para contatos, oportunidades e tarefas, com opção de compartilhamento pelo administrador.</li><li>Linha do tempo do lead reunindo atividades, tarefas e oportunidades vinculadas.</li><li>Descrição desta atualização aparece ao entrar no CRM; o ícone de novidades permite reabri-la.</li></ul></div><div class="nexo-release-section"><strong>O que ainda está em validação</strong><ul><li>Permissões e endurecimento de segurança dependem da execução do SQL combinado no Supabase.</li><li>Confirmação real de permissões, recorrência e filtros salvos ainda precisa ser feita neste projeto Supabase.</li></ul></div><div class="nexo-release-note"><b>* Validação pendente:</b> funcionalidades com asterisco foram preparadas no código, mas precisam ser conferidas no Supabase real. O asterisco marca itens implementados no código, porém não totalmente validados em ambiente real.</div></div><footer class="nexo-release-foot"><small>WhatsApp oficial continua adiado. Nenhum dado será removido por este patch.</small><button type="button" class="btn primary" onclick="closeReleaseNotes()">Entendi, entrar no CRM</button></footer></section>`;
+      overlay.innerHTML=`<section class="nexo-release-dialog"><header class="nexo-release-head"><span class="nexo-release-mark">${ico('chart',21)}</span><div style="flex:1;min-width:0"><h2 id="nexoReleaseTitle">Novidades do NEXO CRM</h2><p>Patch 1.2.0-alpha · Fase 3 — Gestão e análise*</p></div><button class="icon-button" aria-label="Fechar novidades" onclick="closeReleaseNotes()">${ico('x',18)}</button></header><div class="nexo-release-body"><div class="nexo-release-section"><strong>O que mudou nesta atualização</strong><ul><li>Nova área <b>Gestão e análise</b>: conversão por etapa com histórico disponível, ciclo médio e mediano de venda, motivos de perda, desempenho por responsável, origem dos leads e previsão ponderada.</li><li>Filtro por período para comparar os últimos 30 dias, 90 dias, 12 meses ou todo o histórico.</li><li>A seção <b>Atividades</b> foi movida para a parte inferior da barra lateral, junto de Configurações.</li><li>As superfícies cinza agora ganham um tom neutro com influência sutil da cor de destaque escolhida, em modo escuro e claro.</li><li>A análise é calculada com os registros reais carregados do Supabase; não são inseridos dados fictícios.</li></ul></div><div class="nexo-release-section"><strong>O que permanece em validação</strong><ul><li>Conversão histórica por etapa depende das transições registradas; períodos anteriores à trilha podem estar incompletos.</li><li>O ciclo de venda só considera negócios ganhos com data de criação e fechamento disponíveis.</li><li>Previsão ponderada depende do valor da oportunidade e da probabilidade configurada na etapa.</li><li>As melhorias visuais e relatórios ainda precisam de teste no seu Supabase real; segurança multiempresa não está concluída.</li></ul></div><div class="nexo-release-note"><b>* Validação pendente:</b> esta versão foi preparada no código e verificada sintaticamente, mas os números e permissões precisam ser conferidos no ambiente real antes de considerar a fase concluída.</div></div><footer class="nexo-release-foot"><small>WhatsApp oficial segue adiado. Esta atualização de relatórios não exige uma nova migration SQL.</small><button type="button" class="btn primary" onclick="closeReleaseNotes()">Entendi, entrar no CRM</button></footer></section>`;
       overlay.addEventListener('click',e=>{if(e.target===overlay)closeReleaseNotes();});
       document.body.appendChild(overlay);
     }
@@ -1380,17 +1410,181 @@
   window.activitiesPage = function () {
     return `${pageHeader('HISTÓRICO','Atividades','Histórico registrado no servidor.',button('Registrar atividade',"openModal('activity')",true,'plus'))}<section class="card"><div class="card-head"><div><div class="card-title">Linha do tempo</div><div class="card-sub">Interações e notas comerciais</div></div></div><div class="activity-list">${state.activities.map(activityItem).join('')||'<div class="empty">Nenhuma atividade registrada.</div>'}</div></section>`;
   };
+  function analyticsDate(value) {
+    if(!value) return null;
+    const raw=String(value).trim();
+    // Datas sem horário são tratadas como data local para não cair no dia anterior por UTC.
+    const dateOnlyMatch=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if(dateOnlyMatch) return new Date(Number(dateOnlyMatch[1]),Number(dateOnlyMatch[2])-1,Number(dateOnlyMatch[3]));
+    const d=new Date(raw.includes('T')?raw:raw.replace(' ','T'));
+    return Number.isNaN(d.getTime())?null:d;
+  }
+  function analyticsStageForDeal(deal) {
+    return (state.pipelineStages||[]).find(s=>Number(s.id)===Number(deal.stage_id)) || null;
+  }
+  function analyticsDealOutcome(deal) {
+    const stage=analyticsStageForDeal(deal);
+    const won=Boolean(stage?.is_won ?? deal.is_won);
+    const lost=Boolean(stage?.is_lost ?? deal.is_lost);
+    return won?'won':lost?'lost':'open';
+  }
+  function analyticsMatchesRange(record, range, isDeal=false) {
+    if(range==='all') return true;
+    const days=range==='30d'?30:range==='90d'?90:365;
+    const date=analyticsDate(isDeal && (analyticsDealOutcome(record)!=='open') ? (record.closed_at||record.created_at) : record.created_at);
+    // Registros sem data são mantidos na análise para não sumirem silenciosamente.
+    if(!date) return true;
+    return date.getTime() >= Date.now() - days*86400000;
+  }
+  function analyticsDateLabel(value) {
+    const d=analyticsDate(value);
+    return d?d.toLocaleDateString('pt-BR',{day:'2-digit',month:'short',year:'numeric'}).replace('.',''):'Sem data';
+  }
+  function analyticsDaysBetween(start,end) {
+    const a=analyticsDate(start), b=analyticsDate(end);
+    if(!a||!b||b<a)return null;
+    return (b.getTime()-a.getTime())/86400000;
+  }
+  function analyticsNorm(value) {
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim().toLowerCase();
+  }
+  window.setAnalyticsRange = function(range) {
+    analyticsRange=['30d','90d','12m','all'].includes(range)?range:'12m';
+    render();
+  };
   window.reportsPage = function () {
-    const deals=state.deals||[], contacts=state.contacts||[];
-    const stageForDeal=d=>(state.pipelineStages||[]).find(st=>Number(st.id)===Number(d.stage_id));
-    const won=deals.filter(d=>Boolean(stageForDeal(d)?.is_won ?? d.is_won));
-    const lost=deals.filter(d=>Boolean(stageForDeal(d)?.is_lost ?? d.is_lost));
-    const opened=deals.filter(d=>!Boolean(stageForDeal(d)?.is_won ?? d.is_won)&&!Boolean(stageForDeal(d)?.is_lost ?? d.is_lost));
-    const wonTotal=won.reduce((s,d)=>s+d.value,0), openTotal=opened.reduce((s,d)=>s+d.value,0);
+    const allDeals=(state.deals||[]).filter(d=>!d.deleted_at);
+    const deals=allDeals.filter(d=>analyticsMatchesRange(d,analyticsRange,true));
+    const allContacts=(state.contacts||[]).filter(c=>!c.deleted_at);
+    const contacts=allContacts.filter(c=>analyticsMatchesRange(c,analyticsRange,false));
+    const allTasks=(state.tasks||[]).filter(t=>!t.deleted_at);
+    const activeTasks=allTasks.filter(t=>!['Concluída','Cancelada'].includes(t.status));
     const stages=(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position);
-    const sources={}; contacts.forEach(c=>{const k=c.source||'Não informado';sources[k]=(sources[k]||0)+1;});
-    const sourceRows=Object.entries(sources).sort((a,b)=>b[1]-a[1]).map(([name,count])=>`<div class="source-row"><span>${esc(name)}</span><div class="source-track"><i style="width:${contacts.length?count/contacts.length*100:0}%"></i></div><b>${count}</b></div>`).join('')||'<div class="empty">Os canais aparecerão após cadastrar contatos.</div>';
-    return `${pageHeader('INTELIGÊNCIA COMERCIAL','Relatórios','Indicadores calculados a partir dos seus registros.',button('Exportar oportunidades',"exportCSV('deals')",false,'download'))}<div class="stats">${liveStat('Negócios ganhos',won.length,'check','Etapa de ganho')}${liveStat('Valor ganho',money(wonTotal),'money','Valor dos negócios ganhos')}${liveStat('Valor em aberto',money(openTotal),'target','Oportunidades em andamento')}${liveStat('Negócios perdidos',lost.length,'note','Etapa de perda')}</div><div class="report-grid"><section class="card"><div class="card-head"><div><div class="card-title">Oportunidades por etapa</div><div class="card-sub">Quantidade em cada etapa do funil</div></div></div><div style="padding:4px 20px 18px">${stages.map(s=>{const n=deals.filter(d=>Number(d.stage_id)===Number(s.id)).length;const pct=deals.length?n/deals.length*100:0;return `<div class="pipeline-row" style="grid-template-columns:100px minmax(30px,1fr) 25px"><span class="pipeline-name">${esc(s.name)}</span><div class="pipeline-bar"><div class="pipeline-fill" style="width:${pct}%"></div></div><span class="pipeline-count">${n}</span></div>`}).join('')||'<div class="empty">Nenhuma etapa configurada.</div>'}</div></section><section class="card"><div class="card-head"><div><div class="card-title">Origem dos contatos</div><div class="card-sub">Distribuição por canal registrado</div></div></div><div style="padding:0 20px 20px">${sourceRows}</div></section><section class="card"><div class="card-head"><div><div class="card-title">Resumo</div><div class="card-sub">Valores do banco de dados</div></div></div><div style="padding:0 20px 20px"><div class="stat-note">Contatos ativos</div><div style="font-size:25px;font-weight:750;margin:6px 0 18px">${contacts.filter(c=>c.status!=='Inativo').length}</div><div class="panel-divider" style="padding-top:15px;display:flex;justify-content:space-between;font-size:11px;color:var(--muted)"><span>Oportunidades registradas</span><b style="color:white">${deals.length}</b></div><div style="display:flex;justify-content:space-between;font-size:11px;color:var(--muted);padding-top:13px"><span>Taxa de ganho sobre encerradas</span><b style="color:white">${won.length+lost.length?Math.round(won.length/(won.length+lost.length)*100)+'%':'—'}</b></div></div></section></div>`;
+    const stageById=new Map(stages.map(s=>[Number(s.id),s]));
+    const outcome=d=>analyticsDealOutcome(d);
+    const won=deals.filter(d=>outcome(d)==='won');
+    const lost=deals.filter(d=>outcome(d)==='lost');
+    const open=deals.filter(d=>outcome(d)==='open');
+    const closed=won.concat(lost);
+    const wonValue=won.reduce((sum,d)=>sum+(Number(d.value)||0),0);
+    const openValue=open.reduce((sum,d)=>sum+(Number(d.value)||0),0);
+    const winRate=closed.length?Math.round(won.length/closed.length*100):null;
+    const weightedForecast=allDeals.filter(d=>outcome(d)==='open').reduce((sum,d)=>{
+      const probability=Number(stageById.get(Number(d.stage_id))?.probability)||0;
+      return sum+(Number(d.value)||0)*Math.max(0,Math.min(100,probability))/100;
+    },0);
+    const cycleSamples=won.map(d=>analyticsDaysBetween(d.created_at,d.closed_at)).filter(v=>v!==null);
+    const avgCycle=cycleSamples.length?cycleSamples.reduce((a,b)=>a+b,0)/cycleSamples.length:null;
+    const sortedCycles=cycleSamples.slice().sort((a,b)=>a-b);
+    const medianCycle=sortedCycles.length?(sortedCycles.length%2?sortedCycles[(sortedCycles.length-1)/2]:(sortedCycles[sortedCycles.length/2-1]+sortedCycles[sortedCycles.length/2])/2):null;
+    const periodOptions=[['30d','Últimos 30 dias'],['90d','Últimos 90 dias'],['12m','Últimos 12 meses'],['all','Todo o histórico']];
+    const filterMarkup=`<div class="analytics-toolbar"><span class="analytics-metric-chip">${deals.length} oportunidades no período</span><span class="toolbar-spacer"></span><label for="analyticsPeriod" class="card-sub">Período</label><select id="analyticsPeriod" class="analytics-period" onchange="setAnalyticsRange(this.value)">${periodOptions.map(([v,l])=>`<option value="${v}" ${analyticsRange===v?'selected':''}>${l}</option>`).join('')}</select><button class="btn small ghost" type="button" onclick="exportCSV('deals')">${ico('download',13)} Exportar oportunidades</button></div>`;
+
+    // Estágio atual + transições registradas no histórico. Histórico antigo pode ser parcial.
+    const relevantDealIds=new Set(deals.map(d=>Number(d.id)));
+    const reachedByStage=new Map(stages.map(s=>[Number(s.id),new Set()]));
+    for(const d of deals) if(reachedByStage.has(Number(d.stage_id))) reachedByStage.get(Number(d.stage_id)).add(Number(d.id));
+    const stageNameLookup=new Map(stages.map(s=>[analyticsNorm(s.name),Number(s.id)]));
+    for(const a of (state.activities||[])) {
+      if(String(a.type||'').toLowerCase()!=='stage_change') continue;
+      const dealId=Number(a.deal_id);
+      if(!relevantDealIds.has(dealId)) continue;
+      const body=String(a.body||'');
+      const target=body.split(/→|->|→/).pop().trim();
+      let sid=stageNameLookup.get(analyticsNorm(target));
+      if(!sid) {
+        const normalizedBody=analyticsNorm(target);
+        for(const [name,id] of stageNameLookup.entries()) if(normalizedBody.endsWith(name)){sid=id;break;}
+      }
+      if(sid&&reachedByStage.has(sid)) reachedByStage.get(sid).add(dealId);
+    }
+    const stageRows=stages.map(s=>{
+      const current=deals.filter(d=>Number(d.stage_id)===Number(s.id));
+      const currentPct=deals.length?current.length/deals.length*100:0;
+      const reached=reachedByStage.get(Number(s.id))||new Set();
+      const reachedDeals=deals.filter(d=>reached.has(Number(d.id)));
+      const winsReached=reachedDeals.filter(d=>outcome(d)==='won').length;
+      const rate=reachedDeals.length?Math.round(winsReached/reachedDeals.length*100):null;
+      return {s,current:current.length,currentPct,reached:reachedDeals.length,rate,currentValue:current.reduce((sum,d)=>sum+(Number(d.value)||0),0)};
+    });
+    const stageMarkup=stageRows.length?`<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Etapa</th><th>Negócios atuais</th><th>Distribuição</th><th>Valor atual</th><th>Taxa de ganho*</th></tr></thead><tbody>${stageRows.map(r=>`<tr><td><strong>${esc(r.s.name)}</strong><small class="analytics-row-sub">Probabilidade da etapa: ${Number(r.s.probability)||0}%</small></td><td>${r.current}</td><td><div class="analytics-row" style="border:0;padding:0;grid-template-columns:minmax(50px,1fr) 28px;gap:7px"><div class="analytics-track"><i style="width:${Math.max(0,Math.min(100,r.currentPct))}%"></i></div><b class="analytics-row-value">${Math.round(r.currentPct)}%</b></div></td><td>${money(r.currentValue)}</td><td>${r.rate===null?'—':`${r.rate}% <small class="analytics-row-sub">${r.reached} chegaram à etapa</small>`}</td></tr>`).join('')}</tbody></table></div>`:'<div class="analytics-empty">Nenhuma etapa configurada neste funil.</div>';
+
+    // Motivos de perda.
+    const lossGroups=new Map();
+    for(const d of lost) {const reason=String(d.lost_reason||'').trim()||'Não informado';lossGroups.set(reason,(lossGroups.get(reason)||0)+1);}
+    const lossRows=[...lossGroups.entries()].sort((a,b)=>b[1]-a[1]);
+    const maxLoss=Math.max(1,...lossRows.map(r=>r[1]));
+    const lossMarkup=lossRows.length?lossRows.slice(0,8).map(([reason,count])=>`<div class="analytics-row"><span class="analytics-row-name" title="${esc(reason)}">${esc(reason)}</span><div class="analytics-track"><i style="width:${count/maxLoss*100}%"></i></div><b class="analytics-row-value">${count}</b></div>`).join(''):'<div class="analytics-empty">Ainda não há oportunidades perdidas no período. Registre o motivo da perda ao encerrar um negócio.</div>';
+
+    // Performance por responsável.
+    const people=new Map();
+    function ensurePerson(key,name) { if(!people.has(key))people.set(key,{key,name,won:0,lost:0,open:0,wonValue:0,openValue:0});return people.get(key); }
+    (state.users||[]).filter(u=>Number(u.is_active)!==0).forEach(u=>ensurePerson(`id:${u.id}`,u.name||'Usuário'));
+    for(const d of deals) {
+      const uid=Number(d.owner_id)||null;
+      const name=String(d.owner||((state.users||[]).find(u=>Number(u.id)===uid)?.name)||'Sem responsável');
+      const key=uid?`id:${uid}`:`name:${name}`;
+      const p=ensurePerson(key,name);
+      if(outcome(d)==='won'){p.won++;p.wonValue+=Number(d.value)||0;}
+      else if(outcome(d)==='lost')p.lost++;
+      else {p.open++;p.openValue+=Number(d.value)||0;}
+    }
+    const peopleRows=[...people.values()].filter(p=>p.won+p.lost+p.open>0).sort((a,b)=>b.wonValue-a.wonValue||b.won-a.won);
+    const peopleMarkup=peopleRows.length?`<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Responsável</th><th>Ganhos</th><th>Perdidos</th><th>Abertos</th><th>Conversão*</th><th>Valor ganho</th><th>Pipeline aberto</th></tr></thead><tbody>${peopleRows.map(p=>{const nClosed=p.won+p.lost;return `<tr><td><strong>${esc(p.name)}</strong></td><td>${p.won}</td><td>${p.lost}</td><td>${p.open}</td><td>${nClosed?Math.round(p.won/nClosed*100)+'%':'—'}</td><td>${money(p.wonValue)}</td><td>${money(p.openValue)}</td></tr>`;}).join('')}</tbody></table></div>`:'<div class="analytics-empty">Não há negócios vinculados a responsáveis no período selecionado.</div>';
+
+    // Origem dos leads e conversão dos negócios associados.
+    // Para atribuir a origem a um negócio, consultar toda a base de contatos; o filtro do relatório pode excluir contatos antigos.
+    const contactsById=new Map(allContacts.map(c=>[Number(c.id),c]));
+    const sourceMap=new Map();
+    for(const c of contacts) {
+      const source=String(c.source||'').trim()||'Não informado';
+      if(!sourceMap.has(source))sourceMap.set(source,{source,contacts:0,deals:0,won:0,lost:0,wonValue:0});
+      sourceMap.get(source).contacts++;
+    }
+    for(const d of deals) {
+      const c=contactsById.get(Number(d.contact_id));
+      if(!c) continue;
+      const source=String(c.source||'').trim()||'Não informado';
+      if(!sourceMap.has(source))sourceMap.set(source,{source,contacts:0,deals:0,won:0,lost:0,wonValue:0});
+      const row=sourceMap.get(source);row.deals++;
+      if(outcome(d)==='won'){row.won++;row.wonValue+=Number(d.value)||0;}
+      if(outcome(d)==='lost')row.lost++;
+    }
+    const sources=[...sourceMap.values()].sort((a,b)=>b.wonValue-a.wonValue||b.contacts-a.contacts);
+    const sourcesMarkup=sources.length?`<div class="analytics-table-wrap"><table class="analytics-table"><thead><tr><th>Origem</th><th>Contatos</th><th>Negócios</th><th>Ganhos</th><th>Conversão*</th><th>Valor ganho</th></tr></thead><tbody>${sources.map(s=>`<tr><td><strong>${esc(s.source)}</strong></td><td>${s.contacts}</td><td>${s.deals}</td><td>${s.won}</td><td>${s.won+s.lost?Math.round(s.won/(s.won+s.lost)*100)+'%':'—'}</td><td>${money(s.wonValue)}</td></tr>`).join('')}</tbody></table></div>`:'<div class="analytics-empty">Cadastre contatos e informe a origem para comparar canais.</div>';
+
+    // Previsão ponderada por valor e probabilidade, agrupada pela previsão de fechamento.
+    const today=new Date();today.setHours(0,0,0,0);
+    const forecastBuckets=[
+      {key:'overdue',label:'Previsão vencida',sub:'Data anterior a hoje'},
+      {key:'7d',label:'Próximos 7 dias',sub:'Fechamento iminente'},
+      {key:'30d',label:'8 a 30 dias',sub:'Curto prazo'},
+      {key:'90d',label:'31 a 90 dias',sub:'Médio prazo'},
+      {key:'later',label:'Após 90 dias',sub:'Mais adiante'},
+      {key:'none',label:'Sem previsão',sub:'Definir uma data'}
+    ].map(b=>({...b,count:0,raw:0,weighted:0}));
+    for(const d of allDeals.filter(x=>outcome(x)==='open')) {
+      const close=analyticsDate(d.expected_close_date||d.close);
+      let key='none';
+      if(close){close.setHours(0,0,0,0);const diff=Math.round((close-today)/86400000);key=diff<0?'overdue':diff<=7?'7d':diff<=30?'30d':diff<=90?'90d':'later';}
+      const b=forecastBuckets.find(x=>x.key===key);if(!b)continue;
+      const value=Math.max(0,Number(d.value)||0),prob=Math.max(0,Math.min(100,Number(stageById.get(Number(d.stage_id))?.probability)||0));
+      b.count++;b.raw+=value;b.weighted+=value*prob/100;
+    }
+    const maxForecast=Math.max(1,...forecastBuckets.map(b=>b.weighted));
+    const forecastMarkup=`<div class="analytics-forecast-list">${forecastBuckets.map(b=>`<div class="analytics-forecast-item"><div class="analytics-forecast-label">${esc(b.label)}<small>${esc(b.sub)} · ${b.count} negócio(s)</small></div><div class="analytics-forecast-bar"><i style="width:${Math.max(0,Math.min(100,b.weighted/maxForecast*100))}%"></i></div><div class="analytics-forecast-value">${money(b.weighted)}<small class="analytics-row-sub">de ${money(b.raw)}</small></div></div>`).join('')}</div><div class="analytics-note" style="margin:13px 0 0">Valor ponderado = valor do negócio × probabilidade da etapa. Negócios sem valor ou sem probabilidade geram estimativa zero; ajuste esses dados para melhorar a previsão.</div>`;
+
+    // Seis últimos meses de ganhos baseados em closed_at; sem inventar datas para registros antigos.
+    const months=[];
+    for(let i=5;i>=0;i--){const d=new Date();d.setDate(1);d.setHours(0,0,0,0);d.setMonth(d.getMonth()-i);months.push({y:d.getFullYear(),m:d.getMonth(),label:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),count:0,value:0});}
+    for(const d of allDeals.filter(x=>outcome(x)==='won')) {const closedAt=analyticsDate(d.closed_at);if(!closedAt)continue;const m=months.find(x=>x.y===closedAt.getFullYear()&&x.m===closedAt.getMonth());if(m){m.count++;m.value+=Number(d.value)||0;}}
+    const maxMonthly=Math.max(1,...months.map(m=>m.value));
+    const monthlyMarkup=months.some(m=>m.count)?`<div class="analytics-forecast-list">${months.map(m=>`<div class="analytics-forecast-item"><div class="analytics-forecast-label">${esc(m.label)} ${m.y}<small>${m.count} venda(s) ganha(s)</small></div><div class="analytics-forecast-bar"><i style="width:${Math.max(0,Math.min(100,m.value/maxMonthly*100))}%"></i></div><div class="analytics-forecast-value">${money(m.value)}</div></div>`).join('')}</div>`:'<div class="analytics-empty">Ainda não há vendas ganhas com data de fechamento registrada nos últimos seis meses.</div>';
+
+    const noDateDeals=deals.filter(d=>!analyticsDate(d.created_at));
+    const noNextAction= open.filter(d=>!activeTasks.some(t=>Number(t.deal_id)===Number(d.id)||Number(t.contact_id)===Number(d.contact_id)));
+    const pageNote=`${noDateDeals.length?` ${noDateDeals.length} oportunidade(s) não têm data de criação legível e foram mantidas no total.`:''}`;
+    return `${pageHeader('INTELIGÊNCIA COMERCIAL','Gestão e análise','Veja resultados, gargalos e próximas previsões com base nos dados registrados.',button('Exportar oportunidades',"exportCSV('deals')",false,'download'))}${filterMarkup}<div class="analytics-kpis">${liveStat('Oportunidades abertas',open.length,'target','No período selecionado')}${liveStat('Pipeline ponderado',money(weightedForecast),'chart','Todas as oportunidades abertas')}${liveStat('Taxa de ganho',winRate===null?'—':winRate+'%','check',`${won.length} ganhos de ${closed.length} encerrados`)}${liveStat('Ciclo médio',avgCycle===null?'—':`${avgCycle.toFixed(1).replace('.',',')} dias`,'clock',`${cycleSamples.length} venda(s) com datas válidas · mediana ${medianCycle===null?'—':medianCycle.toFixed(1).replace('.',',')+' d'}`)}</div><div class="analytics-grid"><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Conversão e distribuição por etapa</div><div class="card-sub">Volume atual, valor em cada etapa e taxa de ganho entre oportunidades com histórico disponível.</div></div></div>${stageMarkup}<div class="analytics-note">* Conversão final por etapa é calculada a partir de transições stage_change registradas e da etapa atual. Movimentações anteriores ao registro de histórico podem não aparecer; portanto, use as taxas como referência, não como uma série histórica completa.</div></section><section class="card analytics-panel"><div class="card-head"><div><div class="card-title">Motivos de perda</div><div class="card-sub">Por que as oportunidades foram encerradas sem venda.</div></div></div><div class="analytics-panel-body">${lossMarkup}</div></section><section class="card analytics-panel"><div class="card-head"><div><div class="card-title">Vendas ganhas por mês</div><div class="card-sub">Últimos seis meses, independentemente do filtro geral do relatório.</div></div></div><div class="analytics-panel-body">${monthlyMarkup}<div class="analytics-legend"><span><i></i> Valor de negócios ganhos</span><span>Inclui somente oportunidades com closed_at registrado.</span></div></div></section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Desempenho por responsável</div><div class="card-sub">Conversão sobre negócios encerrados, valor ganho e pipeline aberto no período.</div></div></div>${peopleMarkup}</section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Origem dos leads</div><div class="card-sub">Compara volume de contatos, negócios associados e conversão por canal registrado.</div></div></div>${sourcesMarkup}</section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Previsão comercial</div><div class="card-sub">Negócios abertos distribuídos pela data prevista de fechamento.</div></div></div><div class="analytics-panel-body">${forecastMarkup}</div></section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Pontos de atenção</div><div class="card-sub">Sinais que merecem ação da equipe, sem alterações automáticas nos registros.</div></div></div><div class="analytics-panel-body"><div class="analytics-row"><span class="analytics-row-name">Oportunidades sem próxima ação</span><div class="analytics-track"><i style="width:${open.length?Math.min(100,noNextAction.length/open.length*100):0}%"></i></div><b class="analytics-row-value">${noNextAction.length}</b></div><div class="analytics-row"><span class="analytics-row-name">Retornos vencidos</span><div class="analytics-track"><i style="width:${activeTasks.length?Math.min(100,activeTasks.filter(t=>{const d=analyticsDate(t.due_at||t.date);return d&&d<new Date()}).length/activeTasks.length*100):0}%"></i></div><b class="analytics-row-value">${activeTasks.filter(t=>{const d=analyticsDate(t.due_at||t.date);return d&&d<new Date()}).length}</b></div><div class="analytics-row"><span class="analytics-row-name">Negócios sem motivo de perda</span><div class="analytics-track"><i style="width:${lost.length?Math.min(100,lost.filter(d=>!String(d.lost_reason||'').trim()).length/lost.length*100):0}%"></i></div><b class="analytics-row-value">${lost.filter(d=>!String(d.lost_reason||'').trim()).length}</b></div><p class="card-sub" style="line-height:1.6;margin:12px 0 0">${noNextAction.length?'Considere agendar uma próxima ação para as oportunidades abertas sem tarefa vinculada.':'Todas as oportunidades abertas têm pelo menos uma tarefa ativa vinculada no conjunto de dados carregado.'}${pageNote}</p></div></section></div>`;
   };
 
   function selectMarkup(name, options, selected='', placeholder='Selecione') {
@@ -1617,7 +1811,7 @@
     } else if(activeSettings==='dados') {
       contents=`<h3 class="settings-section-title">Dados e exportação</h3><p class="settings-section-desc">Exporte dados para cópia externa. Para backup completo, use os recursos de backup/exportação disponíveis no painel do Supabase.</p><div class="toggle-row"><div class="toggle-copy"><strong>Exportar contatos</strong><span>Baixe os contatos da base atual em CSV.</span></div>${button('Exportar CSV',"exportCSV('contacts')",false,'download')}</div><div class="toggle-row"><div class="toggle-copy"><strong>Exportar oportunidades</strong><span>Baixe os negócios do funil em CSV.</span></div>${button('Exportar CSV',"exportCSV('deals')",false,'download')}</div><div class="toggle-row"><div class="toggle-copy"><strong>Backup do Supabase</strong><span>Use Supabase Dashboard → Database → Backups/Export para proteger os dados do projeto.</span></div><span class="status">Manual</span></div>`;
     } else {
-      contents=`<h3 class="settings-section-title">Licença e versão</h3><p class="settings-section-desc">Informações desta instalação do CRM.</p><div class="card" style="padding:18px;background:var(--panel2)"><div class="eyebrow">NEXO CRM</div><div style="font-size:20px;font-weight:750;margin:6px 0">Versão 0.5 · Logo da empresa e navegação responsiva</div><p class="card-sub" style="line-height:1.7">Interface conectada ao Supabase Auth e PostgreSQL. Antes de comercializar, finalize testes de segurança, auditoria, backups e permissões.</p></div>`;
+      contents=`<h3 class="settings-section-title">Licença e versão</h3><p class="settings-section-desc">Informações desta instalação do CRM.</p><div class="card" style="padding:18px;background:var(--panel2)"><div class="eyebrow">NEXO CRM</div><div style="font-size:20px;font-weight:750;margin:6px 0">Versão 1.2 · Gestão e análise</div><p class="card-sub" style="line-height:1.7">Interface conectada ao Supabase Auth e PostgreSQL. Antes de comercializar, finalize testes de segurança, auditoria, backups e permissões.</p></div>`;
     }
     return `${pageHeader('PREFERÊNCIAS','Configurações','Personalize a aparência e administre o CRM.')}<div class="settings-layout"><aside class="card settings-nav">${[['empresa','Dados da empresa'],['aparencia','Aparência e cores'],['usuarios','Usuários e acessos'],['filtros','Filtros salvos'],['campos','Campos personalizados'],['funil','Colunas do funil'],['dados','Dados e backups'],['licenca','Licença e versão']].map(([k,v])=>`<button class="settings-tab ${activeSettings===k?'active':''}" onclick="setSettingsTab('${k}')">${v}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
   };
@@ -1700,7 +1894,7 @@
   };
 
   window.navLabel = function(page) {
-    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Relatórios',settings:'Configurações'})[page] || 'Visão geral';
+    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Gestão e análise',settings:'Configurações'})[page] || 'Visão geral';
   };
 
   // Renderização explícita: evita conflitos com os handlers antigos do protótipo inline.
@@ -1751,7 +1945,7 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     const breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) {
-      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Relatórios',settings:'Configurações'};
+      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Gestão e análise',settings:'Configurações'};
       breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
     }
     const sidebar = document.getElementById('sidebar');
@@ -1780,7 +1974,7 @@
 
   // Reinitialize only after the authentication overlay has been attached.
   state=emptyState();
-  applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{const c=localStorage.getItem('nexo-crm-accent');return c&&c.toLowerCase()!=='#788d52'?c:'#24466f';}catch(_){return '#24466f';}})(),false);
+  applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{const c=localStorage.getItem('nexo-crm-accent');return c||'#24466f';}catch(_){return '#24466f';}})(),false);
   ensureAuthMarkup();
   initializeApp();
 })();

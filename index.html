@@ -420,6 +420,90 @@ body[data-theme="light"] .saved-view-controls select,body[data-theme="light"] .c
 @media(max-width:1050px){.followup-grid{grid-template-columns:1fr}.followup-metrics{grid-template-columns:repeat(2,minmax(0,1fr))}.followup-risk-list{grid-template-columns:1fr}}
 @media(max-width:620px){.followup-task-row{grid-template-columns:26px minmax(0,1fr) auto}.followup-task-row>.icon-button{display:none}.followup-task-date{font-size:8px}.followup-risk-item{padding:8px}.followup-risk-tag{display:none}.custom-field-row{grid-template-columns:minmax(0,1fr) auto}.custom-field-row-actions{grid-column:1/-1;justify-content:flex-end}.nexo-release-head,.nexo-release-body,.nexo-release-foot{padding-left:17px;padding-right:17px}.nexo-release-foot{align-items:flex-start;flex-direction:column}.nexo-release-foot button{width:100%}.saved-view-controls select{max-width:100%}}
 
+
+/* NEXO CRM Stage 3: accent-tinted neutral surfaces (dynamic values set by applyAppearance). */
+body[data-theme="dark"] .topbar{background:var(--side);border-color:var(--line)}
+body[data-theme="dark"] .workspace,
+body[data-theme="dark"] .help-card,
+body[data-theme="dark"] .search-global,
+body[data-theme="dark"] .top-action,
+body[data-theme="dark"] .select-mini,
+body[data-theme="dark"] .toolbar-select,
+body[data-theme="dark"] .search-box,
+body[data-theme="dark"] .form-field input,
+body[data-theme="dark"] .form-field select,
+body[data-theme="dark"] .form-field textarea,
+body[data-theme="dark"] .saved-view-controls select,
+body[data-theme="dark"] .custom-field-create,
+body[data-theme="dark"] .custom-field-row,
+body[data-theme="dark"] .pipeline-view-toggle,
+body[data-theme="dark"] .pipeline-search-matches,
+body[data-theme="dark"] .pipeline-search-match,
+body[data-theme="dark"] .pipeline-priority-item,
+body[data-theme="dark"] .followup-risk-item,
+body[data-theme="dark"] .timeline-contact-card,
+body[data-theme="dark"] .deal-card,
+body[data-theme="dark"] .stage-create-form,
+body[data-theme="dark"] .stage-manage-row,
+body[data-theme="dark"] .stage-column{background:var(--panel2);border-color:var(--line)}
+body[data-theme="dark"] .stage-head,
+body[data-theme="dark"] .deal-foot,
+body[data-theme="dark"] .table-card thead,
+body[data-theme="dark"] thead{border-color:var(--line);background:var(--side)}
+body[data-theme="dark"] .nav-item:hover,
+body[data-theme="dark"] .settings-tab:hover{background:var(--accent-soft);color:var(--text)}
+body[data-theme="dark"] .nav-item.active,
+body[data-theme="dark"] .settings-tab.active{background:var(--accent-soft);color:var(--text);box-shadow:inset 2px 0 0 var(--accent)}
+body[data-theme="light"] .nav-item:hover,
+body[data-theme="light"] .settings-tab:hover{background:var(--accent-soft);color:var(--text)}
+body[data-theme="light"] .nav-item.active,
+body[data-theme="light"] .settings-tab.active{background:var(--accent-soft)!important;color:var(--text)!important;box-shadow:inset 2px 0 0 var(--accent)}
+.side-bottom-nav{display:flex;flex-direction:column;gap:4px;padding-top:10px;margin:4px 0 9px;border-top:1px solid var(--line)}
+.side-bottom-nav .nav-item{font-size:12px}
+body.nexo-sidebar-collapsed .side-bottom-nav{align-items:stretch}
+body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-start}
+.analytics-toolbar{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin:-8px 0 18px}
+.analytics-toolbar .toolbar-spacer{flex:1}
+.analytics-period{min-height:34px;max-width:190px;border:1px solid var(--line2);border-radius:9px;padding:7px 10px;background:var(--panel2);color:var(--text);font-size:11px}
+.analytics-kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:15px}
+.analytics-kpi{min-width:0;background:var(--panel);border:1px solid var(--line);border-radius:13px;padding:15px;display:grid;gap:8px}
+.analytics-kpi-label{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font-size:10px}
+.analytics-kpi-label svg{width:15px;height:15px;stroke:var(--accent);flex:none}
+.analytics-kpi-value{font:700 clamp(20px,2vw,27px)/1.1 'Space Grotesk',sans-serif;letter-spacing:-.04em;overflow-wrap:anywhere}
+.analytics-kpi-note{font-size:10px;line-height:1.45;color:var(--muted)}
+.analytics-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;align-items:start}
+.analytics-panel{overflow:hidden;min-width:0}
+.analytics-panel.span-2{grid-column:1/-1}
+.analytics-panel-body{padding:2px 17px 17px;min-width:0}
+.analytics-note{margin:0 17px 15px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);font-size:10px;color:var(--muted);line-height:1.55}
+.analytics-row{display:grid;grid-template-columns:minmax(100px,1.1fr) minmax(80px,2fr) minmax(28px,.4fr);gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:10px}
+.analytics-row:last-child{border-bottom:0}
+.analytics-row-name{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text)}
+.analytics-track{height:7px;border-radius:20px;overflow:hidden;background:var(--line)}
+.analytics-track i{display:block;height:100%;border-radius:20px;background:linear-gradient(90deg,var(--accent),var(--accent-strong));min-width:0}
+.analytics-row-value{text-align:right;font-weight:750;color:var(--text);font-variant-numeric:tabular-nums}
+.analytics-row-sub{display:block;font-size:9px;color:var(--muted);margin-top:3px}
+.analytics-table-wrap{width:100%;overflow:auto}
+.analytics-table{width:100%;border-collapse:collapse;white-space:nowrap}
+.analytics-table th{padding:10px 13px;background:var(--side);border-bottom:1px solid var(--line);font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.analytics-table td{padding:11px 13px;border-bottom:1px solid var(--line);font-size:10px;color:var(--text)}
+.analytics-table tbody tr:hover{background:var(--panel2)}
+.analytics-table tbody tr:last-child td{border-bottom:0}
+.analytics-metric-chip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line);background:var(--panel2);padding:4px 7px;border-radius:6px;font-size:9px;color:var(--muted)}
+.analytics-metric-chip.good{color:#36c98a}.analytics-metric-chip.warn{color:#d9ad3e}.analytics-metric-chip.bad{color:#ef7179}
+.analytics-forecast-list{display:grid;gap:12px}
+.analytics-forecast-item{display:grid;grid-template-columns:minmax(110px,1fr) minmax(80px,1.2fr) auto;gap:10px;align-items:center}
+.analytics-forecast-label{font-size:10px;color:var(--text)}
+.analytics-forecast-label small{display:block;color:var(--muted);font-size:9px;margin-top:3px}
+.analytics-forecast-value{text-align:right;font-size:11px;font-weight:750;white-space:nowrap}
+.analytics-forecast-bar{height:7px;border-radius:20px;background:var(--line);overflow:hidden}
+.analytics-forecast-bar i{display:block;height:100%;background:linear-gradient(90deg,var(--accent),var(--accent-strong));border-radius:20px}
+.analytics-empty{padding:16px;border:1px dashed var(--line2);border-radius:10px;text-align:center;color:var(--muted);font-size:11px;line-height:1.55}
+.analytics-legend{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:11px;font-size:9px;color:var(--muted)}
+.analytics-legend span{display:inline-flex;align-items:center;gap:5px}.analytics-legend i{width:7px;height:7px;border-radius:50%;background:var(--accent)}
+@media(max-width:1020px){.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-grid{grid-template-columns:1fr}}
+@media(max-width:760px){.analytics-kpis{gap:8px}.analytics-kpi{padding:12px}.analytics-panel.span-2{grid-column:auto}.analytics-toolbar>*{flex:1}.analytics-period{max-width:none}.analytics-row{grid-template-columns:minmax(85px,1fr) minmax(55px,1.4fr) 28px;gap:7px}.analytics-forecast-item{grid-template-columns:minmax(85px,1fr) minmax(50px,1fr);gap:7px}.analytics-forecast-value{grid-column:2;grid-row:1}.analytics-forecast-bar{grid-column:1/-1}}
+
 </style>
 </head>
 <body>
@@ -448,13 +532,14 @@ body[data-theme="light"] .saved-view-controls select,body[data-theme="light"] .c
       <button class="nav-item" data-page="pipeline" title="Funil de vendas" onclick="navigate('pipeline')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="3" y="4" width="5" height="6" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="15" rx="1"/><path d="M3 13h5M10 18h5"/></svg>Funil de vendas</button>
       <button class="nav-item" data-page="tasks" title="Tarefas" onclick="navigate('tasks')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16M8 14l2 2 5-5"/></svg>Tarefas<span class="nav-count" id="taskCount">0</span></button>
       <button class="nav-item" data-page="followup" title="Acompanhamento" onclick="navigate('followup')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M17.5 4.7 19 3.5"/></svg>Acompanhamento</button>
-      <button class="nav-item" data-page="activities" title="Atividades" onclick="navigate('activities')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="7" cy="5" r="1" fill="currentColor"/><circle cx="14" cy="12" r="1" fill="currentColor"/><circle cx="10" cy="19" r="1" fill="currentColor"/></svg>Atividades</button>
-      <div class="nav-label" style="padding-top:23px">Análise</div>
-      <button class="nav-item" data-page="reports" title="Relatórios" onclick="navigate('reports')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 20V10m5 10V4m5 16v-7m5 7V7"/><path d="M2 20h20"/></svg>Relatórios</button>
-      <div class="nav-label" style="padding-top:23px">Sistema</div>
-      <button class="nav-item" data-page="settings" title="Configurações" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.5 2.6-1.4-.5a7.9 7.9 0 0 1-1.8 1l-.3 1.5h-3l-.3-1.5a7.9 7.9 0 0 1-1.8-1l-1.4.5-1.5-2.6 1.1-.9a7.3 7.3 0 0 1 0-2l-1.1-.9 1.5-2.6 1.4.5a7.9 7.9 0 0 1 1.8-1l.3-1.5h3l.3 1.5a7.9 7.9 0 0 1 1.8 1l1.4-.5 1.5 2.6-1.1.9a7.3 7.3 0 0 1 0 2Z" transform="translate(-.8 -1) scale(.98)"/></svg>Configurações</button>
+      <button class="nav-item" data-page="reports" title="Gestão e análise" onclick="navigate('reports')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 20V10m5 10V4m5 16v-7m5 7V7"/><path d="M2 20h20"/></svg>Gestão e análise</button>
     </nav>
-    <div class="side-bottom"><div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Consulte o guia rápido para aproveitar melhor seu CRM.</p><button onclick="showToast('Central de ajuda demonstrativa.')">Acessar central ↗</button></div><div class="profile"><div class="profile-pic">LC</div><div class="profile-info"><strong>Administrador</strong><span>Administrador</span></div><button class="icon-button" aria-label="Opções do perfil" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.6v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.5-1H6.3v-2.6h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2H15v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></div></div>
+    <div class="side-bottom">
+      <div class="side-bottom-nav" aria-label="Sistema">
+        <button class="nav-item" data-page="activities" title="Atividades" onclick="navigate('activities')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="7" cy="5" r="1" fill="currentColor"/><circle cx="14" cy="12" r="1" fill="currentColor"/><circle cx="10" cy="19" r="1" fill="currentColor"/></svg>Atividades</button>
+        <button class="nav-item" data-page="settings" title="Configurações" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.5 2.6-1.4-.5a7.9 7.9 0 0 1-1.8 1l-.3 1.5h-3l-.3-1.5a7.9 7.9 0 0 1-1.8-1l-1.4.5-1.5-2.6 1.1-.9a7.3 7.3 0 0 1 0-2l-1.1-.9 1.5-2.6 1.4.5a7.9 7.9 0 0 1 1.8-1l.3-1.5h3l.3 1.5a7.9 7.9 0 0 1 1.8 1l1.4-.5 1.5 2.6-1.1.9a7.3 7.3 0 0 1 0 2Z" transform="translate(-.8 -1) scale(.98)"/></svg>Configurações</button>
+      </div>
+      <div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Consulte o guia rápido para aproveitar melhor seu CRM.</p><button onclick="showToast('Central de ajuda demonstrativa.')">Acessar central ↗</button></div><div class="profile"><div class="profile-pic">LC</div><div class="profile-info"><strong>Administrador</strong><span>Administrador</span></div><button class="icon-button" aria-label="Opções do perfil" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.6v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.5-1H6.3v-2.6h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2H15v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></div></div>
   </aside>
   <main class="main">
     <header class="topbar"><button class="top-action mobile-menu" aria-label="Abrir menu" onclick="toggleSidebar(true)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="crumb" id="breadcrumb">Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="showToast('Central de ajuda demonstrativa.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button><button class="top-action" aria-label="Ver atualizações" title="Novidades desta versão" onclick="showReleaseNotes()"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 8v4l2.5 1.5"/><circle cx="12" cy="12" r="9"/><path d="M18.2 5.8 20 4"/></svg></button></header>
@@ -480,7 +565,7 @@ function localDateIso(){const d=new Date();return `${d.getFullYear()}-${String(d
 function recentMonthBuckets(){const now=new Date();return Array.from({length:6},(_,i)=>{const d=new Date(now.getFullYear(),now.getMonth()-5+i,1);return {key:`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`,label:d.toLocaleDateString('pt-BR',{month:'short'}).replace('.',''),created:0,won:0}})}
 function friendlyDate(){return new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'short',year:'numeric'}).format(new Date()).replace('.','')}
 function statusClass(s){return ['Ganho','Qualificado','Concluída','Novo lead'].includes(s)?'light':s==='Em negociação'||s==='Proposta'||s==='Negociação'?'':'muted'}
-function navLabel(page){return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',activities:'Atividades',reports:'Relatórios',settings:'Configurações'})[page]||'Visão geral'}
+function navLabel(page){return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',activities:'Atividades',reports:'Gestão e análise',settings:'Configurações'})[page]||'Visão geral'}
 function navigate(page){currentPage=page;document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));document.getElementById('breadcrumb').innerHTML=`Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${navLabel(page)}</b>`;const sb=document.getElementById('sidebar');if(sb&&window.matchMedia('(min-width: 761px)').matches)sb.classList.add('sidebar-suppress-hover');toggleSidebar(false);render()}
 function toggleSidebar(open){document.getElementById('sidebar').classList.toggle('open',open);document.getElementById('mobileOverlay').classList.toggle('open',open)}
 function pageHeader(eyebrow,title,sub,actions=''){return `<div class="page-heading"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${sub}</p></div><div class="heading-actions">${actions}</div></div>`}
@@ -605,6 +690,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <!-- NEXO CRM hotfix build: 1.0.3-funnel-hotfix-20261018 -->
-<script src="integration.js?v=1.1.0-stage2-20261018"></script>
+<script src="integration.js?v=1.2.0-stage3-20261018"></script>
 </body>
 </html>
