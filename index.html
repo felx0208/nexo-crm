@@ -173,7 +173,8 @@ button.workspace:hover{border-color:var(--line2);background:var(--panel2)}
  body.nexo-sidebar-collapsed .sidebar:hover:not(.sidebar-suppress-hover) .brand-mark{width:34px;height:34px;flex-basis:34px}
  body.nexo-sidebar-collapsed .sidebar:hover:not(.sidebar-suppress-hover) .brand-symbol{width:25px;height:25px}
  body.nexo-sidebar-collapsed .sidebar:hover:not(.sidebar-suppress-hover) .brand>div:last-child{width:auto;max-width:170px;opacity:1;transform:translateX(0);pointer-events:auto}
- body.nexo-sidebar-collapsed .workspace-switcher{margin-left:0;margin-right:0;margin-bottom:18px}
+ body.nexo-sidebar-collapsed .workspace-switcher{margin:0!important;max-height:0;height:0;opacity:0;overflow:hidden;pointer-events:none;transform:translateY(-4px);transition:max-height .26s cubic-bezier(.22,.75,.25,1),margin .22s cubic-bezier(.22,.75,.25,1),opacity .16s ease,transform .22s ease}
+ body.nexo-sidebar-collapsed .sidebar:hover:not(.sidebar-suppress-hover) .workspace-switcher{max-height:96px;height:auto;margin:0 3px 25px!important;opacity:1;overflow:visible;pointer-events:auto;transform:translateY(0)}
  body.nexo-sidebar-collapsed button.workspace{justify-content:center;gap:0;padding:6px;margin:0;min-height:42px;border-color:transparent;background:transparent}
  body.nexo-sidebar-collapsed .workspace-avatar{width:26px;height:26px;min-width:26px;border-radius:8px;font-size:11px;overflow:hidden;flex:0 0 26px}
  body.nexo-sidebar-collapsed .workspace-avatar img{width:100%;height:100%;padding:2px;object-fit:contain;display:block}
@@ -690,6 +691,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <!-- NEXO CRM hotfix build: 1.0.3-funnel-hotfix-20261018 -->
-<script src="integration.js?v=1.2.0-stage3-20261018"></script>
+<script src="integration.js?v=1.3.0-phase4-prep-20261018"></script>
 </body>
 </html>
