@@ -1446,14 +1446,71 @@
     if(open) panel.scrollIntoView({behavior:'smooth',block:'nearest'});
   };
 
+  // Renderização explícita: evita conflitos com os handlers antigos do protótipo inline.
   window.render = function() {
-    const target=document.getElementById('mainContent');
-    const pages={dashboard,contacts:contactsPage,whatsapp:window.whatsappPage,pipeline:pipelinePage,tasks:tasksPage,activities:activitiesPage,reports:reportsPage,settings:settingsPage};
-    target.innerHTML=(pages[currentPage]||dashboard)();
-    const cc=document.getElementById('contactCount');if(cc)cc.textContent=state.contacts.length;
-    const tc=document.getElementById('taskCount');if(tc)tc.textContent=state.tasks.filter(t=>t.status!=='Concluída'&&t.status!=='Cancelada').length;
-    document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===currentPage));
+    const target = document.getElementById('mainContent');
+    if (!target) return;
+    const pages = {
+      dashboard: window.dashboard,
+      contacts: window.contactsPage,
+      whatsapp: window.whatsappPage,
+      pipeline: window.pipelinePage,
+      tasks: window.tasksPage,
+      activities: window.activitiesPage,
+      reports: window.reportsPage,
+      settings: window.settingsPage
+    };
+    const renderer = pages[currentPage] || window.dashboard;
+    try {
+      if (typeof renderer !== 'function') throw new Error('A tela solicitada não foi carregada corretamente.');
+      target.innerHTML = renderer();
+    } catch (error) {
+      console.error('[NEXO CRM] Falha ao renderizar a tela:', currentPage, error);
+      target.innerHTML = `<section class="card" style="padding:24px;margin:12px 0"><div class="card-title" style="font-size:15px;margin-bottom:7px">Não foi possível abrir esta área</div><p class="card-sub" style="line-height:1.7">A tela ${String(currentPage).replace(/[<>]/g,'')} encontrou um erro. Seus dados não foram apagados. Abra o console do navegador ou envie esta mensagem de erro para corrigirmos.</p><button type="button" class="btn" onclick="window.navigate('dashboard')">Voltar ao início</button></section>`;
+      if (typeof window.showToast === 'function') window.showToast('A tela não abriu. Seus dados foram preservados.');
+    }
+    const cc = document.getElementById('contactCount');
+    if (cc) cc.textContent = (state.contacts || []).length;
+    const tc = document.getElementById('taskCount');
+    if (tc) tc.textContent = (state.tasks || []).filter(t => t.status !== 'Concluída' && t.status !== 'Cancelada').length;
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));
+    const breadcrumb = document.getElementById('breadcrumb');
+    if (breadcrumb && typeof window.navLabel === 'function') {
+      const label = window.navLabel(currentPage);
+      breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${label}</b>`;
+    }
   };
+
+  // A navegação usada pelos botões é registrada aqui, depois das telas reais do Supabase.
+  // Isso impede que a função antiga da prévia HTML sobrescreva o fluxo de navegação.
+  window.navigate = function(page) {
+    const allowed = ['dashboard','contacts','whatsapp','pipeline','tasks','activities','reports','settings'];
+    if (!allowed.includes(page)) {
+      console.warn('[NEXO CRM] Rota desconhecida:', page);
+      return;
+    }
+    currentPage = page;
+    document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
+    const breadcrumb = document.getElementById('breadcrumb');
+    if (breadcrumb) {
+      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',activities:'Atividades',reports:'Relatórios',settings:'Configurações'};
+      breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
+    }
+    const sidebar = document.getElementById('sidebar');
+    if (sidebar && window.matchMedia('(min-width: 761px)').matches) sidebar.classList.add('sidebar-suppress-hover');
+    if (typeof window.toggleSidebar === 'function') window.toggleSidebar(false);
+    window.render();
+  };
+
+  // Captura cliques na navegação antes dos onclicks legados do HTML.
+  // Links de navegação em botões gerados dinamicamente continuam usando window.navigate.
+  document.addEventListener('click', function(event) {
+    const navButton = event.target && event.target.closest ? event.target.closest('.nav-item[data-page]') : null;
+    if (!navButton) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    window.navigate(navButton.dataset.page);
+  }, true);
 
   // Substitui ações locais pelos endpoints da API.
   window.resetDemo = function(){showToast('Os registros reais não são apagados pela interface. Para remover dados, arquive cada registro ou use uma ferramenta administrativa autorizada.');};
