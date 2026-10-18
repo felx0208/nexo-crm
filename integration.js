@@ -8,6 +8,10 @@
   let pendingCompanyLogo = undefined; // undefined = unchanged; null = remove; string = new data URL
   let isSubmitting = false;
   let authMode = 'login';
+  // Estado explícito da tela do funil. Sem estas declarações, o strict mode
+  // lança ReferenceError ao abrir o funil antes mesmo de renderizar os cards.
+  let pipelineSearchQuery = '';
+  let pipelineViewMode = 'board';
   let lastAuthMessage = '';
   // Cards virtuais para testar drag-and-drop; nunca são gravados no Supabase.
   let blankTestCards = [];
