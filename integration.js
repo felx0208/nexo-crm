@@ -1893,6 +1893,11 @@
           '</div>'+
           '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Criar usuário</button></div>'+
         '</form>'+
+        '<div style="margin-top:22px;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)">'+
+          '<h4 style="font-size:12px;margin:0 0 7px">Criar equipe inicial</h4>'+
+          '<p class="form-help" style="margin-bottom:12px">Cadastre Isaque, Lucas e Pedro em uma única operação, cada um com seu próprio nome de usuário. Informe a senha inicial uma vez; ela não será armazenada no código.</p>'+
+          '<form onsubmit="createInitialCrmTeam(event)"><div class="form-field"><label>Senha inicial para os três usuários</label><input name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="Mínimo de 12 caracteres"></div>'+
+          '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="submit" class="btn primary">Criar Isaque, Lucas e Pedro</button></div></form></div>'+
         '<div style="margin-top:22px"><h4 style="font-size:12px;margin:0 0 10px">Equipe cadastrada</h4>'+
           '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>Usuário</th><th>Status</th><th>Acesso</th></tr></thead><tbody>'+
           (rows||'<tr><td colspan="4">Nenhuma pessoa cadastrada. Crie o primeiro usuário acima.</td></tr>')+
@@ -1970,6 +1975,32 @@
       if(submit){submit.disabled=false;submit.innerHTML=ico('plus',14)+' Criar usuário';}
     }
   };
+  window.createInitialCrmTeam = async function(event) {
+    event.preventDefault();
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode criar usuários.');return;}
+    const form=event.target;
+    const password=String(new FormData(form).get('password')||'');
+    const button=form.querySelector('button[type="submit"]');
+    if(password.length<12){showToast('A senha deve ter pelo menos 12 caracteres.');return;}
+    if(button){button.disabled=true;button.textContent='Criando equipe...';}
+    const team=[['Isaque','isaque'],['Lucas','lucas'],['Pedro','pedro']];
+    const created=[],errors=[];
+    try {
+      const known=await api('users','GET');
+      const existing=new Set((known.data||[]).map(x=>String(x.username||'').toLowerCase()));
+      for(const [name,username] of team){
+        if(existing.has(username)){errors.push(name+': já cadastrado');continue;}
+        try{await api('users','POST',{name,username,password});created.push(name);}
+        catch(e){errors.push(name+': '+(e.message||'erro ao criar'));}
+      }
+      form.reset();
+      await loadRemoteState();render();
+      showToast(created.length+' usuário(s) criado(s).'+(errors.length?' Confira os erros informados.':''));
+      if(errors.length) alert('Resultado do cadastro:\\n'+(created.length?'Criados: '+created.join(', ')+'\\n':'')+'Pendências:\\n'+errors.join('\\n'));
+    }catch(e){showToast(e.message||'Não foi possível cadastrar a equipe.');}
+    finally{if(button){button.disabled=false;button.textContent='Criar Isaque, Lucas e Pedro';}}
+  };
+  
   window.toggleUser = async function(id,active) {
     if(currentUser?.role!=='admin'){showToast('Somente o administrador pode alterar usuários.');return;}
     if(Number(id)===Number(currentUser.id)){showToast('O acesso de administrador não pode ser alterado aqui.');return;}
