@@ -7,8 +7,8 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="icon" type="image/svg+xml" href="nexo-mark.svg">
-<title>NEXO CRM — Supabase</title>
+<link rel="icon" type="image/svg+xml" href="cirandae-logo.svg">
+<title>Cirandaê CRM</title>
 <style>
 :root{--bg:#0a0b0c;--side:#101214;--panel:#151719;--panel2:#191c1f;--line:#292d31;--line2:#34393e;--text:#f2f3f4;--muted:#969da4;--dim:#697178;--white:#fff;--soft:#d5d9dc;--shadow:0 18px 60px #0007;--r:15px}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,"Manrope","Segoe UI",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.01em}button,input,select,textarea{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #aeb5bb;outline-offset:2px}a{color:inherit;text-decoration:none}.app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr)}
@@ -54,7 +54,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .stage-column{scroll-snap-align:start}
 @media(max-width:1180px){.pipeline-board{grid-auto-columns:242px}}
 
-:root{--accent:#24466f;--accent-strong:#416a9a;--accent-contrast:#fff;--accent-soft:rgba(36,70,111,.20)}
+:root{--accent:#052D60;--accent-strong:#416a9a;--accent-contrast:#fff;--accent-soft:rgba(36,70,111,.20)}
 body{font-family:"Manrope",ui-sans-serif,system-ui,sans-serif}
 h1,h2,h3,.brand-name,.card-title,.settings-section-title,.auth-brand strong{font-family:"Space Grotesk","Manrope",sans-serif}
 .brand-mark{background:linear-gradient(145deg,var(--accent-strong),var(--accent));color:#f8faef;box-shadow:0 5px 20px var(--accent-soft);border:1px solid color-mix(in srgb,var(--accent) 65%,white 15%)}
@@ -505,51 +505,49 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
 @media(max-width:1020px){.analytics-kpis{grid-template-columns:repeat(2,minmax(0,1fr))}.analytics-grid{grid-template-columns:1fr}}
 @media(max-width:760px){.analytics-kpis{gap:8px}.analytics-kpi{padding:12px}.analytics-panel.span-2{grid-column:auto}.analytics-toolbar>*{flex:1}.analytics-period{max-width:none}.analytics-row{grid-template-columns:minmax(85px,1fr) minmax(55px,1.4fr) 28px;gap:7px}.analytics-forecast-item{grid-template-columns:minmax(85px,1fr) minmax(50px,1fr);gap:7px}.analytics-forecast-value{grid-column:2;grid-row:1}.analytics-forecast-bar{grid-column:1/-1}}
 
+
+/* Cirandaê CRM — identidade e navegação simplificada */
+.brand{gap:10px}
+.brand-mark{width:38px;height:38px;flex:0 0 38px;background:transparent!important;border:0!important;box-shadow:none!important;border-radius:0!important;padding:0;overflow:visible}
+.brand-mark .brand-symbol{width:100%;height:100%;object-fit:contain;display:block}
+.brand-name{letter-spacing:-.025em;font-size:18px}
+.brand-sub{letter-spacing:.13em}
+.auth-logo{background:transparent!important;border:0!important;box-shadow:none!important}
+.auth-logo img{width:46px;height:46px;display:block;object-fit:contain}
+.side-bottom-nav{display:none!important}
+.side-bottom{margin-top:auto}
+@media(min-width:761px){
+ body.nexo-sidebar-collapsed .brand-mark{width:36px;height:36px;flex-basis:36px;background:transparent!important}
+ body.nexo-sidebar-collapsed .sidebar:hover:not(.sidebar-suppress-hover) .brand-mark{width:38px;height:38px;flex-basis:38px}
+}
 </style>
 </head>
 <body>
 <div class="app">
   <div class="mobile-overlay" id="mobileOverlay" onclick="toggleSidebar(false)"></div>
   <aside class="sidebar" id="sidebar">
-    <div class="brand"><div class="brand-mark" aria-label="Logo NEXO CRM"><svg class="brand-symbol" viewBox="0 0 40 40" aria-hidden="true"><path d="M7 8h8.5L25 22V8h8v24h-8L15 18v14H7z" fill="currentColor"/><path d="M25 8h8v7.5L25 22z" fill="currentColor" opacity=".62"/></svg></div><div><div class="brand-name">NEXO <span>CRM</span></div><div class="brand-sub">GESTÃO COMERCIAL</div></div></div>
-    <div class="workspace-switcher" id="workspaceSwitcher">
-      <button type="button" class="workspace" id="workspaceButton" onclick="toggleWorkspaceMenu(event)" aria-expanded="false" aria-controls="workspaceMenu" aria-haspopup="dialog" title="Abrir opções da empresa">
-        <span class="workspace-avatar" id="companyLogoAvatar" aria-label="Logo da empresa">N</span>
-        <span class="workspace-copy"><strong id="workspaceName">Sua empresa</strong><span>Espaço de trabalho</span></span>
-        <span class="workspace-chevron" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M6.7 9.2c3.05 4.1 7.55 4.1 10.6 0"/><path d="M13.9 9.4h3.4v3.1"/></svg></span>
-      </button>
-      <div class="workspace-menu" id="workspaceMenu" role="dialog" aria-label="Opções da empresa" hidden>
-        <div class="workspace-menu-kicker">ESPAÇO DE TRABALHO</div>
-        <div class="workspace-menu-current"><span class="workspace-menu-mark" id="workspaceMenuMark" aria-label="Logo da empresa">N</span><span class="workspace-menu-current-copy"><strong id="workspaceMenuName">Sua empresa</strong><small>Empresa atual</small></span><span class="workspace-active-dot" title="Ativa"></span></div>
-        <div class="workspace-empty"><span class="workspace-empty-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M8 9h8M8 13h5"/><path d="m16 16 2 2 3-4"/></svg></span><strong>Nenhuma outra empresa</strong><span>Esta instalação está vinculada a uma única empresa. Não há outros espaços para alternar.</span></div>
-        <button type="button" class="workspace-menu-action" onclick="openCompanySettings(event)">Ver dados da empresa <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h13"/><path d="m13 6 6 6-6 6"/></svg></button>
-      </div>
-    </div>
-    <div class="nav-label">Workspace</div>
+    <div class="brand"><div class="brand-mark" aria-label="Logo Cirandaê"><img class="brand-symbol" src="cirandae-logo.svg" alt=""></div><div><div class="brand-name">Cirandaê <span>CRM</span></div><div class="brand-sub">RECREAÇÃO INFANTIL</div></div></div>
+    <div class="nav-label">COMERCIAL</div>
     <nav class="nav" aria-label="Navegação principal">
       <button class="nav-item active" data-page="dashboard" title="Visão geral" onclick="navigate('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="15" width="7" height="6" rx="1.5"/></svg>Visão geral</button>
       <button class="nav-item" data-page="contacts" title="Contatos" onclick="navigate('contacts')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"/><path d="M2.8 20c.5-3.7 2.7-5.5 6.2-5.5s5.7 1.8 6.2 5.5"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.7M17.2 14.8c2.4.5 3.7 2.1 4 5.2"/></svg>Contatos<span class="nav-count" id="contactCount">0</span></button>
       <button class="nav-item" data-page="whatsapp" title="WhatsApp" onclick="navigate('whatsapp')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.2 11.7a8.2 8.2 0 0 1-12.1 7.2L3 20l1.2-4.8A8.2 8.2 0 1 1 20.2 11.7Z"/><path d="M8.3 8.1c.4-.6.8-.5 1.1-.1l.9 1.5c.2.3.1.6-.2.9l-.5.5c.6 1.3 1.6 2.3 2.9 2.9l.5-.6c.2-.3.6-.4.9-.2l1.5.8c.4.2.5.7.2 1.1-.5.7-1.2 1-2 1-2.7-.2-6.2-3.7-6.4-6.4 0-.6.4-1.1 1.1-1.4Z"/></svg>WhatsApp<span class="nav-count" style="color:#88c98a;border-color:#315b3b;background:#18261c">Preparar</span></button>
       <button class="nav-item" data-page="pipeline" title="Funil de vendas" onclick="navigate('pipeline')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="3" y="4" width="5" height="6" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="15" rx="1"/><path d="M3 13h5M10 18h5"/></svg>Funil de vendas</button>
-      <button class="nav-item" data-page="tasks" title="Tarefas" onclick="navigate('tasks')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4m8-4v4M4 10h16M8 14l2 2 5-5"/></svg>Tarefas<span class="nav-count" id="taskCount">0</span></button>
       <button class="nav-item" data-page="followup" title="Acompanhamento" onclick="navigate('followup')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M17.5 4.7 19 3.5"/></svg>Acompanhamento</button>
       <button class="nav-item" data-page="reports" title="Gestão e análise" onclick="navigate('reports')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 20V10m5 10V4m5 16v-7m5 7V7"/><path d="M2 20h20"/></svg>Gestão e análise</button>
+        <button class="nav-item" data-page="settings" title="Configurações" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.5 2.6-1.4-.5a7.9 7.9 0 0 1-1.8 1l-.3 1.5h-3l-.3-1.5a7.9 7.9 0 0 1-1.8-1l-1.4.5-1.5-2.6 1.1-.9a7.3 7.3 0 0 1 0-2l-1.1-.9 1.5-2.6 1.4.5a7.9 7.9 0 0 1 1.8-1l.3-1.5h3l.3 1.5a7.9 7.9 0 0 1 1.8 1l1.4-.5 1.5 2.6-1.1.9a7.3 7.3 0 0 1 0 2Z" transform="translate(-.8 -1) scale(.98)"/></svg>Configurações</button>
     </nav>
     <div class="side-bottom">
-      <div class="side-bottom-nav" aria-label="Sistema">
-        <button class="nav-item" data-page="activities" title="Atividades" onclick="navigate('activities')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 5h16M4 12h16M4 19h10"/><circle cx="7" cy="5" r="1" fill="currentColor"/><circle cx="14" cy="12" r="1" fill="currentColor"/><circle cx="10" cy="19" r="1" fill="currentColor"/></svg>Atividades</button>
-        <button class="nav-item" data-page="settings" title="Configurações" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.5 2.6-1.4-.5a7.9 7.9 0 0 1-1.8 1l-.3 1.5h-3l-.3-1.5a7.9 7.9 0 0 1-1.8-1l-1.4.5-1.5-2.6 1.1-.9a7.3 7.3 0 0 1 0-2l-1.1-.9 1.5-2.6 1.4.5a7.9 7.9 0 0 1 1.8-1l.3-1.5h3l.3 1.5a7.9 7.9 0 0 1 1.8 1l1.4-.5 1.5 2.6-1.1.9a7.3 7.3 0 0 1 0 2Z" transform="translate(-.8 -1) scale(.98)"/></svg>Configurações</button>
-      </div>
-      <div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Consulte o guia rápido para aproveitar melhor seu CRM.</p><button onclick="showToast('Central de ajuda demonstrativa.')">Acessar central ↗</button></div><div class="profile"><div class="profile-pic">LC</div><div class="profile-info"><strong>Administrador</strong><span>Administrador</span></div><button class="icon-button" aria-label="Opções do perfil" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-1.8 1.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5v.2h-2.6v-.2a1.7 1.7 0 0 0-1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1-1.8-1.8.1-.1A1.7 1.7 0 0 0 8 15a1.7 1.7 0 0 0-1.5-1H6.3v-2.6h.2a1.7 1.7 0 0 0 1.5-1 1.7 1.7 0 0 0-.3-1.9l-.1-.1 1.8-1.8.1.1a1.7 1.7 0 0 0 1.9.3 1.7 1.7 0 0 0 1-1.5v-.2H15v.2a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1 1.8 1.8-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.5 1h.2V14h-.2a1.7 1.7 0 0 0-1.5 1Z"/></svg></button></div></div>
+      <div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Consulte o guia rápido para aproveitar melhor seu CRM.</p><button onclick="showToast('Central de ajuda demonstrativa.')">Acessar central ↗</button></div><div class="profile"><div class="profile-pic">C</div><div class="profile-info"><strong>Conta</strong><span>Conta conectada</span></div></div></div>
   </aside>
   <main class="main">
-    <header class="topbar"><button class="top-action mobile-menu" aria-label="Abrir menu" onclick="toggleSidebar(true)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="crumb" id="breadcrumb">Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="showToast('Central de ajuda demonstrativa.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button><button class="top-action" aria-label="Ver atualizações" title="Novidades desta versão" onclick="showReleaseNotes()"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 8v4l2.5 1.5"/><circle cx="12" cy="12" r="9"/><path d="M18.2 5.8 20 4"/></svg></button></header>
+    <header class="topbar"><button class="top-action mobile-menu" aria-label="Abrir menu" onclick="toggleSidebar(true)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="showToast('Central de ajuda demonstrativa.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button><button class="top-action" aria-label="Ver atualizações" title="Novidades desta versão" onclick="showReleaseNotes()"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M12 8v4l2.5 1.5"/><circle cx="12" cy="12" r="9"/><path d="M18.2 5.8 20 4"/></svg></button></header>
     <div class="main-inner" id="mainContent"></div>
   </main>
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="backdropClose(event)"><div class="modal"><div class="modal-head"><div><h2 id="modalTitle">Novo registro</h2><p id="modalSubtitle">Preencha as informações abaixo.</p></div><button class="icon-button" aria-label="Fechar" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><form id="modalForm" onsubmit="submitModal(event)"><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">Cancelar</button><button class="btn primary" id="modalSubmit" type="submit">Salvar registro</button></div></form></div></div>
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
-<div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.08em">NEXO CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
+<div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.03em">Cirandaê CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
 
 <script>
 const ICONS={plus:'<path d="M12 5v14M5 12h14"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',up:'<path d="m5 15 7-7 7 7"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',money:'<path d="M3 7h18v13H3zM3 7l2-3h14l2 3"/><path d="M16 13h5M6 11h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',search:'<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',filter:'<path d="M4 5h16M7 12h10m-7 7h4"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7l.5 2.5a2 2 0 0 1-.6 1.9l-1.3 1.3a16 16 0 0 0 5.8 5.8l1.3-1.3a2 2 0 0 1 1.9-.6l2.5.5a2 2 0 0 1 1.8 2.1Z"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',note:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',chart:'<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-7"/>'};
@@ -690,7 +688,7 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
-<!-- NEXO CRM hotfix build: 1.0.3-funnel-hotfix-20261018 -->
-<script src="integration.js?v=1.3.0-phase4-prep-20261018"></script>
+<!-- Cirandaê CRM · identidade 1.4.0 -->
+<script src="integration.js?v=1.4.0-cirandae-20261117"></script>
 </body>
 </html>
