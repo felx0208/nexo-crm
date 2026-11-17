@@ -511,13 +511,30 @@
         return {data:(rows||[]).map(u=>({...u,id:Number(u.id),is_active:Number(u.is_active)}))};
       }
       if (method === 'POST') {
-        throw new Error('Para adicionar um usuário, use Supabase → Authentication → Users → Add user. O perfil será criado automaticamente. Nunca coloque a chave secret/service_role no navegador.');
+        if(currentUser?.role!=='admin') throw new Error('Somente o administrador pode cadastrar usuários.');
+        const name=checkedText(d.name,'Nome do usuário',120,true);
+        const email=checkedEmail(d.email);
+        const password=typeof d.password==='string'?d.password:'';
+        if(!email) throw new Error('Informe o e-mail do novo usuário.');
+        if(password.length<12) throw new Error('A senha precisa ter pelo menos 12 caracteres.');
+        const {data,error}=await client.functions.invoke('create-crm-user',{body:{name,email,password}});
+        if(error) {
+          let detail=error.message||'Não foi possível criar o acesso.';
+          try { const body=await error.context?.json?.(); detail=body?.error||body?.message||detail; } catch(_) {}
+          throw new Error(detail);
+        }
+        if(data?.error) throw new Error(data.error);
+        return data;
       }
       if (method === 'PATCH' || method === 'PUT') {
-        const payload = dbPayload(d,['is_active','role']);
-        if (payload.is_active !== undefined) payload.is_active = !!payload.is_active;
-        const updated = throwIfError(await client.from('users').update(payload).eq('id',id).select('id').maybeSingle());
-        if (!updated) throw new Error('Usuário não encontrado ou você não tem permissão para alterá-lo.');
+        if(currentUser?.role!=='admin') throw new Error('Somente o administrador pode alterar usuários.');
+        if(Number(id)===Number(currentUser.id)) throw new Error('O acesso de administrador não pode ser desativado aqui.');
+        const target=throwIfError(await client.from('users').select('id,role').eq('id',id).maybeSingle());
+        if(!target || target.role==='admin') throw new Error('Apenas usuários da equipe podem ser alterados aqui.');
+        const payload=dbPayload(d,['is_active']);
+        if(payload.is_active!==undefined) payload.is_active=!!payload.is_active;
+        const updated=throwIfError(await client.from('users').update(payload).eq('id',id).select('id').maybeSingle());
+        if(!updated) throw new Error('Usuário não encontrado ou você não tem permissão para alterá-lo.');
         return {ok:true};
       }
     }
@@ -959,7 +976,7 @@
     const summary=deals.length
       ? `<div style="padding:25px 0;color:var(--muted);font-size:12px">${deals.length} oportunidade(s) cadastrada(s), totalizando <b style="color:var(--text)">${money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0))}</b>.</div>`
       : '<div class="empty"><strong>Seu funil aparecerá aqui</strong>Cadastre oportunidades para acompanhar os pedidos de recreação.</div>';
-    return `${pageHeader(dateLabel.toUpperCase(),'Visão geral',`Bem-vindo ao Cirandaê CRM`,button('Novo contato',"openModal('contact')",true,'plus')+button('Nova oportunidade',"openModal('deal')",false,'target'))}
+    return `${pageHeader(dateLabel.toUpperCase(),'Visão geral',`Bem-vindo ao Cirandaê CRM`,button('Novo contato',"openModal('contact')",true,'plus')+button('Adicionar lead',"openModal('deal')",false,'target'))}
       <div class="stats">${liveStat('Contatos',contacts.length,'users','Registros cadastrados')}${liveStat('Oportunidades abertas',opened.length,'target','Em andamento')}${liveStat('Valor em aberto',money(openValue),'money','Soma das oportunidades abertas')}</div>
       <div class="dashboard-grid">
         <section class="card"><div class="card-head"><div><div class="card-title">Resumo comercial</div><div class="card-sub">Oportunidades registradas no sistema</div></div></div><div class="chart-wrap">${summary}</div></section>
@@ -1352,12 +1369,12 @@
       const ds=deals.filter(d=>Number(d.stage_id)===Number(s.id));
       const total=ds.reduce((a,d)=>a+(Number(d.value)||0),0);
       const testCards=blankTestCards.filter(c=>Number(c.stage_id)===Number(s.id)).map(c=>window.blankTestDealCard(c)).join('');
-      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${ds.length} · ${money(total)}</span></div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar oportunidade</button></section>`;
+      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${ds.length} · ${money(total)}</span></div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
     }).join('');
     const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar oportunidade, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
     const board=`<div class="pipeline-board">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada; o card de teste não entra nos indicadores.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em aberto</div><div class="card-sub">Soma nominal das oportunidades que não foram ganhas ou perdidas.</div></div><strong>${money(deals.filter(dealIsOpen).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
-    const actions=(pipelineViewMode==='board'?button('Card vazio (teste)','addBlankTestCard()',false,'plus'):'')+(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Nova oportunidade',"openModal('deal')",true,'target');
+    const actions=(pipelineViewMode==='board'?button('Card vazio (teste)','addBlankTestCard()',false,'plus'):'')+(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Adicionar lead',"openModal('deal')",true,'target');
     return `${pageHeader('OPORTUNIDADES','Pipeline comercial','Acompanhe as oportunidades, identifique riscos e priorize o próximo contato.',actions)}${controls}${canManage&&pipelineViewMode==='board'?stageCreator:''}${pipelineViewMode==='analysis'?renderPipelineAnalysis(deals,stages):board}`;
   };
   function localMidnight(date=new Date()) { const d=new Date(date); d.setHours(0,0,0,0); return d; }
@@ -1590,8 +1607,38 @@
   function formField(label,name,control,full=false) { return `<div class="form-field ${full?'field-full':''}"><label>${esc(label)}</label>${control}</div>`; }
   function inputMarkup(name,value='',type='text',placeholder='') { return `<input name="${esc(name)}" type="${type}" value="${esc(value??'')}" placeholder="${esc(placeholder)}">`; }
   function textareaMarkup(name,value='',placeholder='') { return `<textarea name="${esc(name)}" placeholder="${esc(placeholder)}">${esc(value||'')}</textarea>`; }
-  function ownerOptions() { return (state.users||[]).filter(u=>Number(u.is_active)!==0).map(u=>({value:u.id,label:u.name+(u.role==='admin'?' · Admin':u.role==='manager'?' · Gerente':'')})); }
+  function ownerOptions() { return (state.users||[]).filter(u=>Number(u.is_active)!==0 && u.role!=='admin').map(u=>({value:u.id,label:u.name})); }
   function contactsOptions() { return (state.contacts||[]).map(c=>({value:c.id,label:c.name+(c.company?' — '+c.company:'')})); }
+
+  function leadContactControl(selected='') {
+    const picker=selectMarkup('contact_id',contactsOptions(),selected,'Selecione um contato')
+      .replace('<select name="contact_id">','<select name="contact_id" onchange="if(this.value) toggleLeadContactForm(false)">');
+    return '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
+      '<div style="flex:1;min-width:180px">' + picker + '</div>' +
+      '<button type="button" class="btn small ghost" onclick="toggleLeadContactForm(true)">' + ico('plus',13) + ' Criar contato novo</button>' +
+      '</div>' +
+      '<div id="leadNewContactFields" class="card" style="padding:13px;margin-top:10px" hidden>' +
+      '<div style="font-size:11px;font-weight:750;margin-bottom:10px">Novo contato principal</div>' +
+      '<div class="form-grid">' +
+      formField('Nome do contato *','new_contact_name',inputMarkup('new_contact_name','','text','Nome de quem solicitou')) +
+      formField('Empresa','new_contact_company',inputMarkup('new_contact_company','','text','Empresa ou responsável')) +
+      formField('E-mail','new_contact_email',inputMarkup('new_contact_email','','email','nome@email.com')) +
+      formField('Telefone','new_contact_phone',inputMarkup('new_contact_phone','','tel','Telefone / WhatsApp')) +
+      '</div><p class="form-help">O contato será salvo automaticamente junto com a criação do lead.</p></div>';
+  }
+  window.toggleLeadContactForm = function(force) {
+    const panel=document.getElementById('leadNewContactFields');
+    if(!panel) return;
+    const open=typeof force==='boolean'?force:panel.hidden;
+    panel.hidden=!open;
+    const picker=document.querySelector('#modalBody select[name="contact_id"]');
+    if(open) {
+      if(picker) picker.value='';
+      panel.querySelector('input[name="new_contact_name"]')?.focus();
+    } else {
+      panel.querySelectorAll('input').forEach(input=>{input.value='';});
+    }
+  };
 
   function valueForCustomField(entityType, recordId, fieldId) {
     if (!recordId) return null;
@@ -1629,14 +1676,15 @@
     const arr={contact:state.contacts,deal:state.deals,task:state.tasks,activity:state.activities,user:state.users}[type]||[];
     const item=id?arr.find(x=>Number(x.id)===Number(id)):null;
     let title='',subtitle='',fields='';
-    const ownerSelected=item?.owner_id || item?.assigned_to || currentUser?.id || '';
-    const ownerControl=selectMarkup('owner_id',ownerOptions(),ownerSelected,'Selecione o responsável');
-    const contactControl=selectMarkup('contact_id',contactsOptions(),item?.contact_id||'','Selecione um contato');
+    const ownerSelected=item?.owner_id || item?.assigned_to || '';
+    const ownerList=ownerOptions();
+    const ownerControl=selectMarkup('owner_id',ownerList,ownerSelected,ownerList.length?'Selecione o responsável':'Cadastre responsáveis em Configurações');
+    const contactControl=type==='deal'?leadContactControl(item?.contact_id||''):selectMarkup('contact_id',contactsOptions(),item?.contact_id||'','Selecione um contato');
     if(type==='contact') {
       title=item?'Editar contato':'Novo contato'; subtitle='Os dados serão gravados no banco Supabase.';
       fields=`<div class="form-grid">${formField('Nome completo *','name',inputMarkup('name',item?.name||'','text','Nome do contato'))}${formField('Empresa','company',inputMarkup('company',item?.company||'','text','Empresa'))}${formField('E-mail','email',inputMarkup('email',item?.email||'','email','nome@empresa.com.br'))}${formField('Telefone','phone',inputMarkup('phone',item?.phone||'','tel','Telefone'))}${formField('Status','status',selectMarkup('status',['Novo lead','Qualificado','Em negociação','Cliente','Inativo'].map(x=>({value:x,label:x})),item?.status||'Novo lead'))}${formField('Responsável','owner_id',ownerControl)}${formField('Origem','source',selectMarkup('source',['Site','Indicação','LinkedIn','Evento','Importação','Outro'].map(x=>({value:x,label:x})),item?.source||'','Selecione a origem'))}${formField('Observações','notes',textareaMarkup('notes',item?.notes||'','Observações relevantes'),true)}${customFieldsMarkup('contacts',item?.id)}</div>`;
     } else if(type==='deal') {
-      title=item?'Editar oportunidade':'Nova oportunidade'; subtitle='Associe um contato e escolha o responsável. A etapa é definida pela coluna do funil.';
+      title=item?'Editar lead':'Adicionar lead'; subtitle='Selecione um contato existente ou crie um novo sem sair deste formulário.';
       const pipelineId=item?.pipeline_id || state.pipelines?.find(p=>Number(p.is_default)===1)?.id || state.pipelines?.[0]?.id || '';
       const stageOptions=(state.pipelineStages||[]).filter(s=>!pipelineId||Number(s.pipeline_id)===Number(pipelineId)).map(s=>({value:s.id,label:s.name}));
       // A etapa é selecionável no formulário de criação/edição; não há seletor duplicado dentro do card.
@@ -1644,7 +1692,7 @@
       const selectedStage=item?.stage_id || stageFromCaller?.value || stageOptions.find(s=>!((state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_won || (state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_lost))?.value || stageOptions[0]?.value || '';
       const retainedValue = item ? (item.value ?? 0) : 0;
       const retainedClose = item ? (item.close || item.expected_close_date || '') : '';
-      fields=`<div class="form-grid">${formField('Nome da oportunidade *','title',inputMarkup('title',item?.title||'','text','Ex.: Projeto de expansão'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<input type="hidden" name="value" value="${esc(retainedValue)}"><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Cadastre um contato antes de criar uma oportunidade.</p>':''}<p class="form-help">O valor e a previsão de fechamento são preservados, mas não precisam ser preenchidos aqui. Você pode escolher a etapa no formulário ou arrastar o card no funil.</p>`;
+      fields=`<div class="form-grid">${formField('Nome do lead *','title',inputMarkup('title',item?.title||'','text','Ex.: Festa de aniversário - João'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<input type="hidden" name="value" value="${esc(retainedValue)}"><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Sua base ainda está vazia? Clique em “Criar contato novo” acima para cadastrar o contato diretamente aqui.</p>':''}<p class="form-help">O valor e a previsão de fechamento são preservados, mas não precisam ser preenchidos aqui. Você pode escolher a etapa no formulário ou arrastar o card no funil.</p>`;
     } else if(type==='task') {
       title=item?'Editar tarefa':'Nova tarefa'; subtitle='Defina o próximo passo e salve para a equipe.';
       const statusOpts=['Pendente','Em andamento','Concluída','Cancelada'].map(x=>({value:x,label:x}));
@@ -1652,7 +1700,7 @@
       const priorityOpts=['Baixa','Média','Alta'].map(x=>({value:x,label:x}));
       const today=new Date().toISOString().slice(0,10);
       const recurrenceOpts=[{value:'none',label:'Não repetir'},{value:'daily',label:'Todos os dias'},{value:'weekly',label:'Toda semana'},{value:'biweekly',label:'A cada 2 semanas'},{value:'monthly',label:'Todo mês'}];
-      fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title',item?.title||'','text','Ex.: Retornar contato'))}${formField('Tipo','type',selectMarkup('type',typeOpts,item?.type||'Tarefa'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],item?.contact_id||'','Sem contato'))}${formField('Responsável','assigned_to',selectMarkup('assigned_to',ownerOptions(),item?.assigned_to||currentUser?.id||'','Selecione responsável'))}${formField('Data','date',inputMarkup('date',item?.date||today,'date'))}${formField('Horário','time',inputMarkup('time',item?.time||'09:00','time'))}${formField('Prioridade','priority',selectMarkup('priority',priorityOpts,item?.priority||'Média'))}${formField('Status','status',selectMarkup('status',statusOpts,item?.status||'Pendente'))}${formField('Repetição automática','recurrence_rule',selectMarkup('recurrence_rule',recurrenceOpts,item?.recurrence_rule||'none'))}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da tarefa'),true)}${customFieldsMarkup('tasks',item?.id)}</div><p class="form-help">Ao concluir uma tarefa recorrente, o CRM cria a próxima ocorrência automaticamente. Não marque como recorrente se cada tarefa precisar de uma data planejada manualmente.</p>`;
+      fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title',item?.title||'','text','Ex.: Retornar contato'))}${formField('Tipo','type',selectMarkup('type',typeOpts,item?.type||'Tarefa'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],item?.contact_id||'','Sem contato'))}${formField('Responsável','assigned_to',selectMarkup('assigned_to',ownerOptions(),item?.assigned_to||'','Selecione responsável'))}${formField('Data','date',inputMarkup('date',item?.date||today,'date'))}${formField('Horário','time',inputMarkup('time',item?.time||'09:00','time'))}${formField('Prioridade','priority',selectMarkup('priority',priorityOpts,item?.priority||'Média'))}${formField('Status','status',selectMarkup('status',statusOpts,item?.status||'Pendente'))}${formField('Repetição automática','recurrence_rule',selectMarkup('recurrence_rule',recurrenceOpts,item?.recurrence_rule||'none'))}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da tarefa'),true)}${customFieldsMarkup('tasks',item?.id)}</div><p class="form-help">Ao concluir uma tarefa recorrente, o CRM cria a próxima ocorrência automaticamente. Não marque como recorrente se cada tarefa precisar de uma data planejada manualmente.</p>`;
     } else if(type==='activity') {
       title='Registrar atividade'; subtitle='Registre uma interação ou observação no histórico.';
       fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title','','text','Ex.: Ligação de acompanhamento'))}${formField('Tipo','type',selectMarkup('type',['note','call','meeting','email','stage_change','status_change','other'].map(x=>({value:x,label:({note:'Nota',call:'Ligação',meeting:'Reunião',email:'E-mail',stage_change:'Mudança de etapa',status_change:'Mudança de status',other:'Outro'})[x]})),'note'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],'','Sem contato'))}${formField('Descrição','body',textareaMarkup('body','','O que aconteceu?'),true)}</div><p class="form-help">Para atualizar o indicador de contato do funil, registre uma Ligação, Reunião ou E-mail. Uma Nota genérica não conta como interação.</p>`;
@@ -1677,23 +1725,52 @@
     try {
       if(modalType==='contact') {
         if(!d.name?.trim()) throw new Error('Informe o nome do contato.');
-        const payload={name:d.name.trim(),company_name:d.company||null,email:d.email||null,phone:d.phone||null,status:statusToApi[d.status]||'lead',owner_id:Number(d.owner_id)||Number(currentUser.id),source:d.source||null,notes:d.notes||null};
+        const payload={name:d.name.trim(),company_name:d.company||null,email:d.email||null,phone:d.phone||null,status:statusToApi[d.status]||'lead',owner_id:d.owner_id?Number(d.owner_id):null,source:d.source||null,notes:d.notes||null};
         const result=editingId?await api('contacts','PUT',{...payload,id:editingId}):await api('contacts','POST',payload);
         const id=editingId||result.id; await saveCustomFieldValues('contacts',id,form); await logActivity(editingId?'Contato atualizado':'Novo contato cadastrado',d.name,'note',id,null);
         showToast(editingId?'Contato atualizado.':'Contato cadastrado.');
       } else if(modalType==='deal') {
-        if(!d.title?.trim()||!d.contact_id) throw new Error('Informe o título da oportunidade e selecione um contato.');
+        if(!d.title?.trim()) throw new Error('Informe o nome do lead.');
         const pipelineId=Number(state.pipelines?.find(p=>Number(p.is_default)===1)?.id||state.pipelines?.[0]?.id);
         const selectedStage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(d.stage_id));
         if(!pipelineId||!selectedStage) throw new Error('O funil de vendas não está configurado. Confira as etapas do banco.');
+
+        let contactId=Number(d.contact_id)||null;
+        if(!contactId && d.new_contact_name?.trim()) {
+          const newContact=await api('contacts','POST',{
+            name:d.new_contact_name.trim(),
+            company_name:d.new_contact_company||null,
+            email:d.new_contact_email||null,
+            phone:d.new_contact_phone||null,
+            status:'lead',
+            owner_id:d.owner_id?Number(d.owner_id):null,
+            source:'Outro'
+          });
+          contactId=Number(newContact.id);
+          await logActivity('Novo contato cadastrado junto ao lead',d.new_contact_name.trim(),'note',contactId,null);
+        }
+        if(!contactId) throw new Error('Selecione um contato ou clique em “Criar contato novo”.');
+
         const previousDeal=editingId?(state.deals||[]).find(x=>Number(x.id)===Number(editingId)):null;
         const previousStageId=previousDeal?Number(previousDeal.stage_id):null;
-        const payload={title:d.title.trim(),contact_id:Number(d.contact_id),pipeline_id:pipelineId,stage_id:Number(selectedStage.id),value:Number(d.value),description:d.description||null,owner_id:Number(d.owner_id)||Number(currentUser.id),expected_close_date:d.expected_close_date||null,lost_reason:d.lost_reason||null};
+        const payload={
+          title:d.title.trim(),
+          contact_id:contactId,
+          pipeline_id:pipelineId,
+          stage_id:Number(selectedStage.id),
+          value:Number(d.value)||0,
+          description:d.description||null,
+          owner_id:d.owner_id?Number(d.owner_id):null,
+          expected_close_date:d.expected_close_date||null,
+          lost_reason:d.lost_reason||null
+        };
         const result=editingId?await api('deals','PUT',{...payload,id:editingId}):await api('deals','POST',payload);
         await saveCustomFieldValues('deals',editingId||result.id,form);
-        await logActivity(editingId?'Oportunidade atualizada':'Oportunidade criada',d.title,'note',Number(d.contact_id),editingId||result.id);
-        if(previousDeal && previousStageId!==Number(selectedStage.id)) await logActivity('Oportunidade movida',`${d.title}: ${previousDeal.stage||'Etapa anterior'} → ${selectedStage.name}`,'stage_change',Number(d.contact_id),Number(editingId));
-        showToast(editingId?'Oportunidade atualizada.':'Oportunidade criada.');
+        await logActivity(editingId?'Lead atualizado':'Lead adicionado',d.title,'note',contactId,editingId||result.id);
+        if(previousDeal && previousStageId!==Number(selectedStage.id)) {
+          await logActivity('Lead movido',d.title+': '+(previousDeal.stage||'Etapa anterior')+' → '+selectedStage.name,'stage_change',contactId,Number(editingId));
+        }
+        showToast(editingId?'Lead atualizado.':'Lead adicionado ao funil.');
       } else if(modalType==='task') {
         if(!d.title?.trim()) throw new Error('Informe o título da tarefa.');
         const payload={title:d.title.trim(),description:d.description||null,type:taskTypeToApi[d.type]||'other',status:taskStatusToApi[d.status]||'pending',priority:priorityToApi[d.priority]||'medium',due_at:toDbDateTime(d.date,d.time),assigned_to:Number(d.assigned_to)||Number(currentUser.id),contact_id:d.contact_id?Number(d.contact_id):null,recurrence_rule:d.recurrence_rule||'none'};
@@ -1796,10 +1873,30 @@
       ['dados','Dados e exportação'],
       ['licenca','Sobre o Cirandaê']
     ];
+    if(canManage) tabs.unshift(['usuarios','Usuários e responsáveis']);
     if(!tabs.some(([key])=>key===activeSettings)) activeSettings='aparencia';
     let contents='';
 
-    if(activeSettings==='aparencia') {
+    if(activeSettings==='usuarios') {
+      const staff=(state.users||[]).filter(u=>u.role!=='admin').slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
+      const rows=staff.map(u=>'<tr><td>'+esc(u.name)+'</td><td>'+esc(u.email||'')+'</td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td><button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button></td></tr>').join('');
+      contents='<h3 class="settings-section-title">Usuários e responsáveis</h3>'+
+        '<p class="settings-section-desc">Cadastre as pessoas da equipe que poderão ser atribuídas aos leads. O acesso de administrador é separado e não aparece como responsável.</p>'+
+        '<form class="custom-field-create" onsubmit="createCrmUser(event)">'+
+          '<div class="form-grid">'+
+            '<div class="form-field"><label>Nome da pessoa *</label><input name="name" maxlength="120" required placeholder="Nome de quem vai atender os leads"></div>'+
+            '<div class="form-field"><label>E-mail de acesso *</label><input name="email" type="email" maxlength="190" required placeholder="pessoa@email.com"></div>'+
+            '<div class="form-field"><label>Senha inicial *</label><input name="password" type="password" minlength="12" required placeholder="Mínimo de 12 caracteres"></div>'+
+          '</div>'+
+          '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Criar usuário</button></div>'+
+        '</form>'+
+        '<div style="margin-top:22px"><h4 style="font-size:12px;margin:0 0 10px">Equipe cadastrada</h4>'+
+          '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Acesso</th></tr></thead><tbody>'+
+          (rows||'<tr><td colspan="4">Nenhuma pessoa cadastrada. Crie o primeiro usuário acima.</td></tr>')+
+          '</tbody></table></div>'+
+        '</div>'+
+        '<p class="form-help" style="margin-top:12px">Os novos usuários recebem acesso de equipe, não de administrador. O e-mail e a senha cadastrados serão usados para entrar no CRM.</p>';
+    } else if(activeSettings==='aparencia') {
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
       contents=`<h3 class="settings-section-title">Aparência do Cirandaê</h3>
         <p class="settings-section-desc">Escolha a cor de destaque e o tema visual do CRM. A prévia é aplicada imediatamente.</p>
@@ -1852,9 +1949,30 @@
     catch(e){showToast(e.message||'Não foi possível alterar o campo.');}
   };
 
+  window.createCrmUser = async function(event) {
+    event.preventDefault();
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode cadastrar usuários.');return;}
+    const form=event.target;
+    const data=Object.fromEntries(new FormData(form).entries());
+    const submit=form.querySelector('button[type="submit"]');
+    if(submit){submit.disabled=true;submit.textContent='Criando acesso...';}
+    try {
+      await api('users','POST',{name:data.name,email:data.email,password:data.password});
+      form.reset();
+      await loadRemoteState();
+      render();
+      showToast('Usuário criado. Ele já pode entrar com o e-mail e a senha cadastrados.');
+    } catch(e) {
+      showToast(e.message||'Não foi possível criar o usuário.');
+      if(submit){submit.disabled=false;submit.innerHTML=ico('plus',14)+' Criar usuário';}
+    }
+  };
   window.toggleUser = async function(id,active) {
-    if(!confirm(active?'Ativar este usuário?':'Desativar este usuário?'))return;
-    try{await api('users','PATCH',{id,is_active:!!active});await loadRemoteState();render();showToast(active?'Usuário ativado.':'Usuário desativado.');}catch(e){showToast(e.message||'Não foi possível alterar o usuário.');}
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode alterar usuários.');return;}
+    if(Number(id)===Number(currentUser.id)){showToast('O acesso de administrador não pode ser alterado aqui.');return;}
+    if(!confirm(active?'Reativar este usuário?':'Desativar este usuário?'))return;
+    try{await api('users','PATCH',{id,is_active:!!active});await loadRemoteState();render();showToast(active?'Usuário reativado.':'Usuário desativado.');}
+    catch(e){showToast(e.message||'Não foi possível alterar o usuário.');}
   };
 
   // WhatsApp: área preparatória. A conexão real exige Meta Cloud API + funções server-side/webhook.
