@@ -542,6 +542,13 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
 .stage-action-art-delete{color:#e99595}
 .stage-action-copy{display:block;min-width:0;white-space:nowrap}
 .stage-action-copy strong{font-size:12px;font-weight:600;line-height:1.3;display:block}
+/* Impede que os estilos gerais do título da coluna quebrem o texto do menu em vertical. */
+.stage-head .stage-options-menu{flex:0 0 28px;width:28px;min-width:28px}
+.stage-head .stage-options-popover{width:192px;min-width:192px;max-width:none;box-sizing:border-box;overflow:visible}
+.stage-head .stage-options-popover .stage-menu-action{display:flex!important;flex-direction:row!important;align-items:center!important;justify-content:flex-start!important;flex-wrap:nowrap!important;width:100%;min-width:0;white-space:nowrap!important}
+.stage-head .stage-options-popover .stage-action-copy{display:block!important;flex:1 1 auto!important;min-width:max-content;white-space:nowrap!important;overflow-wrap:normal!important;word-break:normal!important;writing-mode:horizontal-tb!important}
+.stage-head .stage-options-popover .stage-action-copy strong{display:inline-block!important;max-width:none!important;width:auto!important;min-width:max-content;white-space:nowrap!important;overflow-wrap:normal!important;word-break:keep-all!important;writing-mode:horizontal-tb!important;line-height:1.4!important}
+
 .negotiation-backdrop{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(3,8,8,.77);backdrop-filter:blur(9px)}
 .negotiation-backdrop.open{display:flex}
 .negotiation-dialog{width:min(455px,100%);border:1px solid var(--line2);border-radius:20px;padding:25px;background:var(--panel);color:var(--text);box-shadow:0 28px 90px #000a}
@@ -750,6 +757,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.6.0-icones-menu-simples-20261117"></script>
+<script src="integration.js?v=1.6.1-menu-horizontal-20261117"></script>
 </body>
 </html>
