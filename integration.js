@@ -1,4 +1,4 @@
-/* NEXO CRM - conexão entre a interface e Supabase Auth/PostgreSQL */
+/* Cirandaê CRM - conexão entre a interface e Supabase Auth/PostgreSQL */
 (function () {
   'use strict';
 
@@ -373,7 +373,7 @@
       }
       if (method === 'POST') {
         const name = checkedText(d.name, 'Nome do filtro salvo', 80, true);
-        const entity_type = checkedChoice(d.entity_type, 'Tipo de filtro', ['contacts','deals','tasks'], 'contacts');
+        const entity_type = checkedChoice(d.entity_type, 'Tipo de filtro', ['contacts','deals'], 'contacts');
         const filters = (d.filters && typeof d.filters === 'object' && !Array.isArray(d.filters)) ? d.filters : {};
         const is_shared = Boolean(d.is_shared) && currentUser?.role === 'admin';
         const created = throwIfError(await client.from('saved_views').insert({name,entity_type,filters,owner_id:Number(currentUser.id),is_shared}).select('*').single());
@@ -405,7 +405,7 @@
       if (method === 'POST') {
         if (currentUser?.role !== 'admin') throw new Error('Somente o administrador pode criar campos personalizados.');
         const label = checkedText(d.label,'Nome do campo',80,true);
-        const entity_type = checkedChoice(d.entity_type,'Área do campo',['contacts','deals','tasks'],'contacts');
+        const entity_type = checkedChoice(d.entity_type,'Área do campo',['contacts','deals'],'contacts');
         const field_type = checkedChoice(d.field_type,'Tipo do campo',['text','number','date','select','checkbox','email','url'],'text');
         const field_key = String(d.field_key || label.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'')).slice(0,64);
         if (!/^[a-z][a-z0-9_]{0,63}$/.test(field_key)) throw new Error('O identificador interno do campo está inválido.');
@@ -577,7 +577,7 @@
   }
 
   const appearancePresets = [
-    {name:'Azul profundo · padrão',hex:'#24466f'},
+    {name:'Azul profundo · padrão',hex:'#052D60'},
     {name:'Azul meia-noite',hex:'#142b49'},
     {name:'Azul petróleo',hex:'#1b5363'},
     {name:'Azul aço',hex:'#355d80'},
@@ -610,9 +610,9 @@
     {name:'Cobre',hex:'#ad704d'},
     {name:'Preto',hex:'#22262c'}
   ];
-  function cleanHex(value) { return /^#[0-9a-fA-F]{6}$/.test(String(value||'')) ? String(value) : '#24466f'; }
+  function cleanHex(value) { return /^#[0-9a-fA-F]{6}$/.test(String(value||'')) ? String(value) : '#052D60'; }
   function mixHexColor(accentHex, baseHex, accentWeight) {
-    const a=String(accentHex||'#24466f').replace('#','');
+    const a=String(accentHex||'#052D60').replace('#','');
     const b=String(baseHex||'#151a22').replace('#','');
     if(a.length!==6||b.length!==6)return baseHex;
     const w=Math.min(1,Math.max(0,Number(accentWeight)||0));
@@ -661,13 +661,13 @@
     }
   }
   function applySavedAppearance() {
-    let localTheme='dark',localAccent='#24466f';
+    let localTheme='dark',localAccent='#052D60';
     try { localTheme=localStorage.getItem('nexo-crm-theme')||localTheme; const storedAccent=localStorage.getItem('nexo-crm-accent'); localAccent=storedAccent||localAccent; } catch (_) {}
     applyAppearance(companySettings?.theme_mode||localTheme,companySettings?.accent_color||localAccent,false);
   }
   window.previewNexoAppearance = function() {
     const theme=document.getElementById('settingThemeMode')?.value || 'dark';
-    const accent=cleanHex(document.getElementById('settingAccentColor')?.value || '#24466f');
+    const accent=cleanHex(document.getElementById('settingAccentColor')?.value || '#052D60');
     applyAppearance(theme,accent,true);
     const label=document.getElementById('accentHexValue'); if(label) label.textContent=accent.toUpperCase();
     document.querySelectorAll('.theme-swatch').forEach(button=>{
@@ -683,17 +683,22 @@
   };
   window.saveNexoAppearance = async function() {
     const theme=document.getElementById('settingThemeMode')?.value || 'dark';
-    const accent=cleanHex(document.getElementById('settingAccentColor')?.value || '#24466f');
+    const accent=cleanHex(document.getElementById('settingAccentColor')?.value || '#052D60');
     applyAppearance(theme,accent,true);
-    if(currentUser?.role!=='admin') { showToast('A aparência foi aplicada neste navegador. Somente o administrador pode salvar para toda a empresa.'); return; }
-    const prior=companySettings||{};
+    if(currentUser?.role!=='admin') { showToast('Não foi possível salvar esta preferência.'); return; }
     try {
-      await api('settings','POST',{name:prior.name||document.getElementById('workspaceName')?.textContent||'Minha empresa',email:prior.email||null,phone:prior.phone||null,timezone:prior.timezone||'America/Sao_Paulo',currency:prior.currency||'BRL',theme_mode:theme,accent_color:accent,logo_data:prior.logo_data||null});
-      await loadRemoteState(); render(); showToast('Aparência salva para a instalação.');
+      const prior=companySettings||{};
+      await api('settings','POST',{
+        name:'Cirandaê',
+        currency:'BRL',
+        timezone:'America/Sao_Paulo',
+        theme_mode:theme,
+        accent_color:accent
+      });
+      await loadRemoteState(); render(); showToast('Aparência salva.');
     } catch(e) {
-      // Keeps the preview usable if the SQL migration has not been applied yet.
-      showToast('Aparência aplicada neste navegador, mas não foi salva no Supabase. Execute a migração de aparência no arquivo do projeto.');
-      console.warn('NEXO appearance save:',e.message);
+      showToast(e.message||'A aparência foi aplicada neste navegador, mas não foi salva no Supabase.');
+      console.warn('[Cirandaê CRM] Falha ao salvar aparência:',e.message);
     }
   };
 
@@ -736,7 +741,7 @@
       #authGate{position:fixed;inset:0;z-index:1000;display:flex;align-items:center;justify-content:center;padding:22px;background:rgba(5,7,5,.91);backdrop-filter:blur(14px);color:#eef1e9}
       .auth-panel{width:min(100%,450px);background:#121510;border:1px solid #394130;border-radius:18px;padding:30px;box-shadow:0 28px 90px #0009}
       .auth-brand{display:flex;align-items:center;gap:12px;margin-bottom:27px}.auth-logo{height:46px;width:46px;border-radius:13px;display:grid;place-items:center;background:#303c24;border:1px solid #586744;color:#eaf0dd;font-weight:800;font-size:20px}
-      .auth-logo svg{width:27px;height:27px;display:block}.auth-brand strong{display:block;font-size:19px;letter-spacing:.03em;font-family:'Space Grotesk',sans-serif}.auth-brand span{font-size:10px;letter-spacing:.15em;color:#a4af96}
+      .auth-logo img{width:46px;height:46px;object-fit:contain;display:block}.auth-brand strong{display:block;font-size:19px;letter-spacing:.01em;font-family:'Space Grotesk',sans-serif}.auth-brand span{font-size:10px;letter-spacing:.15em;color:#a4af96}
       .auth-panel h1{font-size:24px;letter-spacing:-.04em;margin:0 0 8px}.auth-copy{color:#a5aba0;font-size:12px;line-height:1.6;margin:0 0 22px}
       .auth-field{margin:13px 0}.auth-field label{display:block;color:#b9c0b2;font-size:11px;margin-bottom:7px}.auth-field input{width:100%;min-height:43px;border:1px solid #353b31;border-radius:9px;background:#1a1e17;color:#f6f7f3;padding:10px 12px;outline:none}.auth-field input:focus{border-color:#788b5b;box-shadow:0 0 0 3px #788b5b22}
       .auth-submit{width:100%;min-height:44px;border:1px solid var(--accent);border-radius:9px;background:var(--accent);color:white;font-weight:750;margin-top:8px;cursor:pointer}.auth-submit:hover{filter:brightness(1.08)}.auth-error{font-size:12px;line-height:1.5;color:#f1c1b8;background:#4b2620;border:1px solid #75463e;padding:10px;border-radius:8px;margin:12px 0}.auth-foot{font-size:10px;color:#747d6b;line-height:1.6;margin-top:18px}
@@ -747,26 +752,25 @@
     `;
     document.head.appendChild(style);
     const gate=document.createElement('div'); gate.id='authGate';
-    gate.innerHTML='<section class="auth-panel" role="dialog" aria-modal="true"><div class="auth-brand"><div class="auth-logo"><svg viewBox="0 0 40 40" aria-hidden="true"><path d="M7 8h8.5L25 22V8h8v24h-8L15 18v14H7z" fill="currentColor"/><path d="M25 8h8v7.5L25 22z" fill="currentColor" opacity=".62"/></svg></div><div><strong>NEXO CRM</strong><span>GESTÃO COMERCIAL</span></div></div><div id="authContent"><p class="auth-copy">Conectando ao servidor...</p></div><div id="authError" class="auth-error" hidden></div></section>';
+    gate.innerHTML='<section class="auth-panel" role="dialog" aria-modal="true"><div class="auth-brand"><div class="auth-logo"><img src="cirandae-logo.svg" alt="Logo Cirandaê"></div><div><strong>Cirandaê CRM</strong><span>RECREAÇÃO INFANTIL</span></div></div><div id="authContent"><p class="auth-copy">Conectando ao servidor...</p></div><div id="authError" class="auth-error" hidden></div></section>';
     document.body.appendChild(gate);
   }
   function showAuthGate(mode='login', message='') {
     ensureAuthMarkup(); authMode=mode; lastAuthMessage=message;
     const content=document.getElementById('authContent');
     if(mode==='setup') {
-      content.innerHTML=`<h1>Configure sua empresa</h1><p class="auth-copy">Crie o primeiro administrador do NEXO CRM. Ainda não há usuários cadastrados neste banco.</p>
+      content.innerHTML=`<h1>Configurar primeiro acesso</h1><p class="auth-copy">Crie o acesso inicial ao Cirandaê CRM. O cadastro de novos perfis não fica disponível pela interface.</p>
         <form onsubmit="window.nexoAuthSubmit(event)">
-          <div class="auth-field"><label>Nome da empresa</label><input name="company" autocomplete="organization" required placeholder="Sua empresa"></div>
-          <div class="auth-field"><label>Seu nome</label><input name="name" autocomplete="name" required placeholder="Nome do administrador"></div>
-          <div class="auth-field"><label>E-mail de acesso</label><input name="email" type="email" autocomplete="username" required placeholder="voce@empresa.com.br"></div>
+          <div class="auth-field"><label>Seu nome</label><input name="name" autocomplete="name" required placeholder="Nome de acesso"></div>
+          <div class="auth-field"><label>E-mail</label><input name="email" type="email" autocomplete="username" required placeholder="voce@email.com"></div>
           <div class="auth-field"><label>Senha (mínimo de 12 caracteres)</label><input name="password" type="password" autocomplete="new-password" minlength="12" required placeholder="Crie uma senha forte"></div>
-          <button class="auth-submit" type="submit">Criar administrador</button>
-        </form><div class="auth-foot">Use esta configuração apenas no ambiente local, com o servidor não exposto à internet.</div>`;
+          <button class="auth-submit" type="submit">Criar acesso</button>
+        </form><div class="auth-foot">Este primeiro acesso é configurado uma única vez.</div>`;
     } else if(mode==='error') {
       content.innerHTML=`<h1>Não foi possível conectar</h1><p class="auth-copy">A interface carregou, mas não conseguiu acessar o Supabase. Confira a URL, a chave publishable e se o SQL de configuração foi executado.</p><button class="auth-submit" type="button" onclick="window.nexoInitialize()">Tentar novamente</button><div class="auth-foot">Não use a chave secret/service_role no navegador. As permissões devem ser protegidas pelas políticas RLS.</div>`;
     } else {
-      content.innerHTML=`<h1>Entre no seu CRM</h1><p class="auth-copy">Acesse contatos, oportunidades e atividades armazenados no banco de dados Supabase da sua instalação.</p>
-        <form onsubmit="window.nexoAuthSubmit(event)"><div class="auth-field"><label>E-mail</label><input name="email" type="email" autocomplete="username" required placeholder="voce@empresa.com.br"></div><div class="auth-field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></div><button class="auth-submit" type="submit">Entrar no NEXO CRM</button></form><div class="auth-foot">Os registros vêm do Supabase. As contas são criadas pelo administrador em Supabase → Authentication → Users.</div>`;
+      content.innerHTML=`<h1>Entre no seu CRM</h1><p class="auth-copy">Acesse os contatos e oportunidades comerciais armazenados no Cirandaê CRM.</p>
+        <form onsubmit="window.nexoAuthSubmit(event)"><div class="auth-field"><label>E-mail</label><input name="email" type="email" autocomplete="username" required placeholder="voce@empresa.com.br"></div><div class="auth-field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></div><button class="auth-submit" type="submit">Entrar no Cirandaê CRM</button></form><div class="auth-foot">Acesso restrito. Entre com o e-mail e a senha autorizados para esta instalação.</div>`;
     }
     const err=document.getElementById('authError');
     err.textContent=message || ''; err.hidden=!message;
@@ -778,7 +782,7 @@
     let overlay=document.getElementById('nexoReleaseBackdrop');
     if(!overlay) {
       overlay=document.createElement('div'); overlay.id='nexoReleaseBackdrop'; overlay.className='nexo-release-backdrop'; overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.setAttribute('aria-labelledby','nexoReleaseTitle');
-      overlay.innerHTML=`<section class="nexo-release-dialog"><header class="nexo-release-head"><span class="nexo-release-mark">${ico('chart',21)}</span><div style="flex:1;min-width:0"><h2 id="nexoReleaseTitle">Novidades do NEXO CRM</h2><p>Patch 1.3.0-alpha · Fase 4 — preparação comercial*</p></div><button class="icon-button" aria-label="Fechar novidades" onclick="closeReleaseNotes()">${ico('x',18)}</button></header><div class="nexo-release-body"><div class="nexo-release-section"><strong>O que mudou nesta atualização</strong><ul><li>Nova seção <b>Plano e assinatura</b> em Configurações, para documentar o modelo dedicado atual e a futura opção SaaS.</li><li>O isolamento multiempresa e as cobranças recorrentes continuam apenas planejados: nenhum schema de empresa ou gateway foi ativado nesta atualização.</li><li>Na barra lateral recolhida, <b>Sua empresa</b> deixa de ocupar um bloco próprio; o seletor aparece quando a barra expande.</li><li>O roteiro de produto foi atualizado para separar implantação dedicada de arquitetura SaaS compartilhada.</li></ul><div class="nexo-release-section"><strong>Recursos anteriores preservados</strong><ul><li>Gestão e análise, acompanhamento, funil inteligente, temas, cores personalizadas e logo continuam disponíveis.</li><li>WhatsApp oficial continua adiado, conforme o planejamento.</li></ul></div></div><div class="nexo-release-section"><strong>O que permanece em validação</strong><ul><li>Fases 1–3 ainda precisam de testes funcionais completos e conferência dos números no Supabase real.</li><li>As permissões e o backup/restauração precisam ser testados antes de uso comercial.</li><li>O SaaS multiempresa e a cobrança não estão ativos; a tela é informativa e não cria assinatura.</li></ul></div><div class="nexo-release-note"><b>* Validação pendente:</b> esta versão foi preparada no código e verificada sintaticamente, mas os números e permissões precisam ser conferidos no ambiente real antes de considerar a fase concluída.</div></div><footer class="nexo-release-foot"><small>WhatsApp oficial segue adiado. Esta atualização não exige SQL nem altera o banco atual.</small><button type="button" class="btn primary" onclick="closeReleaseNotes()">Entendi, entrar no CRM</button></footer></section>`;
+      overlay.innerHTML=`<section class="nexo-release-dialog"><header class="nexo-release-head"><span class="nexo-release-mark">${ico('chart',21)}</span><div style="flex:1;min-width:0"><h2 id="nexoReleaseTitle">Sobre o Cirandaê CRM</h2><p>CRM comercial para recreação infantil</p></div><button class="icon-button" aria-label="Fechar novidades" onclick="closeReleaseNotes()">${ico('x',18)}</button></header><div class="nexo-release-body"><div class="nexo-release-section"><strong>O que mudou nesta atualização</strong><ul><li>Nova seção <b>Plano e assinatura</b> em Configurações, para documentar o modelo dedicado atual e a futura opção SaaS.</li><li>O isolamento multiempresa e as cobranças recorrentes continuam apenas planejados: nenhum schema de empresa ou gateway foi ativado nesta atualização.</li><li>Na barra lateral recolhida, <b>Sua empresa</b> deixa de ocupar um bloco próprio; o seletor aparece quando a barra expande.</li><li>O roteiro de produto foi atualizado para separar implantação dedicada de arquitetura SaaS compartilhada.</li></ul><div class="nexo-release-section"><strong>Recursos anteriores preservados</strong><ul><li>Gestão e análise, acompanhamento, funil inteligente, temas, cores personalizadas e logo continuam disponíveis.</li><li>WhatsApp oficial continua adiado, conforme o planejamento.</li></ul></div></div><div class="nexo-release-section"><strong>O que permanece em validação</strong><ul><li>Fases 1–3 ainda precisam de testes funcionais completos e conferência dos números no Supabase real.</li><li>As permissões e o backup/restauração precisam ser testados antes de uso comercial.</li><li>O SaaS multiempresa e a cobrança não estão ativos; a tela é informativa e não cria assinatura.</li></ul></div><div class="nexo-release-note"><b>* Validação pendente:</b> esta versão foi preparada no código e verificada sintaticamente, mas os números e permissões precisam ser conferidos no ambiente real antes de considerar a fase concluída.</div></div><footer class="nexo-release-foot"><small>WhatsApp oficial segue adiado. Esta atualização não exige SQL nem altera o banco atual.</small><button type="button" class="btn primary" onclick="closeReleaseNotes()">Entendi, entrar no CRM</button></footer></section>`;
       overlay.addEventListener('click',e=>{if(e.target===overlay)closeReleaseNotes();});
       document.body.appendChild(overlay);
     }
@@ -818,7 +822,7 @@
         await api('setup-admin','POST',{name:data.name,email:data.email,password:data.password});
         const logged=await api('login','POST',{email:data.email,password:data.password});
         currentUser=logged.user; csrfToken=logged.csrf || '';
-        await api('settings','POST',{name:data.company,email:data.email,currency:'BRL',timezone:'America/Sao_Paulo'});
+        await api('settings','POST',{name:'Cirandaê',currency:'BRL',timezone:'America/Sao_Paulo',theme_mode:'dark',accent_color:'#052D60'});
       } else {
         const logged=await api('login','POST',{email:data.email,password:data.password});
         currentUser=logged.user; csrfToken=logged.csrf || '';
@@ -908,25 +912,22 @@
   };
 
   function updateAccountChrome() {
-    if(currentUser) {
-      const profileName=document.querySelector('.profile-info strong'); if(profileName) profileName.textContent=currentUser.name;
-      const profileRole=document.querySelector('.profile-info span'); if(profileRole) profileRole.textContent=({admin:'Administrador',manager:'Gerente',sales:'Vendedor'})[currentUser.role] || currentUser.role;
-      const profilePic=document.querySelector('.profile-pic'); if(profilePic) profilePic.textContent=initials(currentUser.name);
-    }
-    const companyName=String(companySettings?.name||'Sua empresa').trim()||'Sua empresa';
-    const workspaceName=document.getElementById('workspaceName'); if(workspaceName) workspaceName.textContent=companyName;
-    const menuName=document.getElementById('workspaceMenuName'); if(menuName) menuName.textContent=companyName;
-    const companyInitial=companyName.slice(0,1).toLocaleUpperCase('pt-BR')||'E';
-    const logoData=safeCompanyLogo(companySettings?.logo_data);
-    paintCompanyLogo(document.getElementById('companyLogoAvatar'),logoData,companyInitial,'Logo da empresa');
-    paintCompanyLogo(document.getElementById('workspaceMenuMark'),logoData,companyInitial,'Logo da empresa');
-    let logoutButton=document.getElementById('nexoLogoutButton');
+    let logoutButton=document.getElementById('cirandaeLogoutButton');
     if(!logoutButton) {
       const topbar=document.querySelector('.topbar');
-      if(topbar) { logoutButton=document.createElement('button'); logoutButton.id='nexoLogoutButton'; logoutButton.className='btn ghost small'; logoutButton.type='button'; logoutButton.textContent='Sair'; logoutButton.onclick=logout; logoutButton.title='Encerrar sessão'; topbar.appendChild(logoutButton); }
+      if(topbar) {
+        logoutButton=document.createElement('button');
+        logoutButton.id='cirandaeLogoutButton';
+        logoutButton.className='btn ghost small';
+        logoutButton.type='button';
+        logoutButton.textContent='Sair';
+        logoutButton.onclick=logout;
+        logoutButton.title='Encerrar sessão';
+        topbar.appendChild(logoutButton);
+      }
     }
-    const cc=document.getElementById('contactCount'); if(cc) cc.textContent=state.contacts?.length||0;
-    const tc=document.getElementById('taskCount'); if(tc) tc.textContent=(state.tasks||[]).filter(t=>t.status!=='Concluída' && t.status!=='Cancelada').length;
+    const cc=document.getElementById('contactCount');
+    if(cc) cc.textContent=state.contacts?.length||0;
   }
 
   function liveStat(label,value,icon,note='Calculado com os registros do banco') {
@@ -950,25 +951,31 @@
   };
 
   window.dashboard = function () {
-    const contacts=state.contacts||[], deals=state.deals||[], tasks=state.tasks||[], activities=state.activities||[];
+    const contacts=state.contacts||[], deals=state.deals||[];
     const getDealStage=d=>(state.pipelineStages||[]).find(st=>Number(st.id)===Number(d.stage_id));
     const isWonDeal=d=>Boolean(getDealStage(d)?.is_won ?? d.is_won);
     const isLostDeal=d=>Boolean(getDealStage(d)?.is_lost ?? d.is_lost);
     const opened=deals.filter(d=>!isWonDeal(d)&&!isLostDeal(d));
-    const pending=tasks.filter(t=>!['Concluída','Cancelada'].includes(t.status));
-    const openValue=opened.reduce((s,d)=>s+(Number(d.value)||0),0);
+    const openValue=opened.reduce((sum,d)=>sum+(Number(d.value)||0),0);
     const dateLabel=new Intl.DateTimeFormat('pt-BR',{weekday:'long',day:'2-digit',month:'short',year:'numeric'}).format(new Date()).replace('.','');
     const stages=(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position);
-    const activeStages=stages.filter(s=>!s.is_won&&!s.is_lost);
-    const stageHtml=activeStages.map(s=>{const ds=deals.filter(d=>Number(d.stage_id)===Number(s.id));const pct=opened.length?Math.max(2,ds.length/opened.length*100):0;return `<div class="pipeline-row"><span class="pipeline-name">${esc(s.name)}</span><div class="pipeline-bar"><div class="pipeline-fill" style="width:${pct}%"></div></div><span class="pipeline-count">${ds.length}</span></div>`}).join('');
+    const activeStages=stages.filter(st=>!st.is_won&&!st.is_lost);
+    const stageHtml=activeStages.map(st=>{
+      const count=deals.filter(d=>Number(d.stage_id)===Number(st.id)).length;
+      const pct=opened.length?Math.max(2,count/opened.length*100):0;
+      return `<div class="pipeline-row"><span class="pipeline-name">${esc(st.name)}</span><div class="pipeline-bar"><div class="pipeline-fill" style="width:${pct}%"></div></div><span class="pipeline-count">${count}</span></div>`;
+    }).join('');
     const recent=contacts.slice(0,5);
-    const chart=deals.length?`<div class="chart-legend"><span><i class="legend-dot"></i>Oportunidades</span><span><i class="legend-dot gray"></i>Valor registrado</span></div><div style="padding:25px 0;color:var(--muted);font-size:12px">${deals.length} oportunidade(s) cadastrada(s), totalizando <b style="color:var(--text)">${money(deals.reduce((s,d)=>s+d.value,0))}</b>. Os dados são carregados diretamente do Supabase.</div>`:`<div class="empty"><strong>Seu desempenho aparecerá aqui</strong>Cadastre oportunidades para gerar indicadores reais.</div>`;
-    return `${pageHeader(dateLabel.toUpperCase(),'Visão geral',`Bem-vindo, ${esc(currentUser?.name||'usuário')}. Estes indicadores vêm dos registros do seu CRM.`,button('Novo contato',"openModal('contact')",true,'plus')+button('Nova oportunidade',"openModal('deal')",false,'target'))}
-      <div class="stats">${liveStat('Contatos totais',contacts.length,'users','Registros ativos')}${liveStat('Oportunidades abertas',opened.length,'target','Ainda não encerradas')}${liveStat('Valor em aberto',money(openValue),'money','Soma das oportunidades abertas')}${liveStat('Tarefas pendentes',pending.length,'calendar','Aguardando conclusão')}</div>
-      <div class="dashboard-grid"><section class="card"><div class="card-head"><div><div class="card-title">Visão comercial</div><div class="card-sub">Resumo baseado nos dados registrados</div></div></div><div class="chart-wrap">${chart}</div></section>
-      <section class="card"><div class="card-head"><div><div class="card-title">Funil de vendas</div><div class="card-sub">Distribuição das oportunidades por etapa</div></div><button class="icon-button" aria-label="Abrir funil" onclick="navigate('pipeline')">${ico('arrow',16)}</button></div><div class="pipeline-summary">${stageHtml||'<div class="empty">Configure as etapas do funil para começar.</div>'}<div class="panel-divider" style="margin-top:19px;padding-top:16px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;color:var(--muted);margin-bottom:5px">Valor em aberto</div><div style="font-size:21px;letter-spacing:-.04em;font-weight:750">${money(openValue)}</div></div>${button('Ver funil',"navigate('pipeline')",false,'arrow')}</div></div></section></div>
-      <section class="card table-card"><div class="card-head"><div><div class="card-title">Contatos recentes</div><div class="card-sub">Últimos contatos adicionados ao banco</div></div>${button('Ver todos',"navigate('contacts')",false,'arrow')}</div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${recent.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Sua base começa aqui</strong>Cadastre seu primeiro contato para acompanhar o relacionamento.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${recent.length}</b> de <b>${contacts.length}</b> contatos</span></div></section>
-      <div class="bottom-grid"><section class="card"><div class="card-head"><div><div class="card-title">Atividade recente</div><div class="card-sub">Interações registradas no sistema</div></div><button class="icon-button" aria-label="Ver atividades" onclick="navigate('activities')">${ico('arrow',16)}</button></div><div class="activity-list">${activities.slice(0,5).map(activityItem).join('')||'<div class="empty">Nenhuma atividade registrada.</div>'}</div></section><section class="card"><div class="card-head"><div><div class="card-title">Próximas tarefas</div><div class="card-sub">Acompanhamento de retornos</div></div><button class="icon-button" aria-label="Ver tarefas" onclick="navigate('tasks')">${ico('arrow',16)}</button></div><div class="tasks-list">${pending.slice(0,4).map(taskItem).join('')||'<div class="empty">Nenhuma tarefa pendente.</div>'}</div></section></div>`;
+    const summary=deals.length
+      ? `<div style="padding:25px 0;color:var(--muted);font-size:12px">${deals.length} oportunidade(s) cadastrada(s), totalizando <b style="color:var(--text)">${money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0))}</b>.</div>`
+      : '<div class="empty"><strong>Seu funil aparecerá aqui</strong>Cadastre oportunidades para acompanhar os pedidos de recreação.</div>';
+    return `${pageHeader(dateLabel.toUpperCase(),'Visão geral',`Bem-vindo ao Cirandaê CRM`,button('Novo contato',"openModal('contact')",true,'plus')+button('Nova oportunidade',"openModal('deal')",false,'target'))}
+      <div class="stats">${liveStat('Contatos',contacts.length,'users','Registros cadastrados')}${liveStat('Oportunidades abertas',opened.length,'target','Em andamento')}${liveStat('Valor em aberto',money(openValue),'money','Soma das oportunidades abertas')}</div>
+      <div class="dashboard-grid">
+        <section class="card"><div class="card-head"><div><div class="card-title">Resumo comercial</div><div class="card-sub">Oportunidades registradas no sistema</div></div></div><div class="chart-wrap">${summary}</div></section>
+        <section class="card"><div class="card-head"><div><div class="card-title">Funil de vendas</div><div class="card-sub">Distribuição por etapa</div></div><button class="icon-button" aria-label="Abrir funil" onclick="navigate('pipeline')">${ico('arrow',16)}</button></div><div class="pipeline-summary">${stageHtml||'<div class="empty">As etapas do funil aparecerão aqui.</div>'}<div class="panel-divider" style="margin-top:19px;padding-top:16px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;color:var(--muted);margin-bottom:5px">Valor em aberto</div><div style="font-size:21px;letter-spacing:-.04em;font-weight:750">${money(openValue)}</div></div>${button('Ver funil',"navigate('pipeline')",false,'arrow')}</div></div></section>
+      </div>
+      <section class="card table-card"><div class="card-head"><div><div class="card-title">Contatos recentes</div><div class="card-sub">Últimos contatos adicionados</div></div>${button('Ver todos',"navigate('contacts')",false,'arrow')}</div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${recent.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Sua base começa aqui</strong>Cadastre o primeiro contato para organizar os pedidos.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${recent.length}</b> de <b>${contacts.length}</b> contatos</span></div></section>`;
   };
 
   function savedViewsMarkup(entityType) {
@@ -981,7 +988,7 @@
     let filters={};
     if(entityType==='contacts') filters={query:searchQuery||'',status:contactFilter||'Todos'};
     else if(entityType==='deals') filters={query:pipelineSearchQuery||'',viewMode:pipelineViewMode||'board'};
-    else if(entityType==='tasks') filters={status:taskFilter||'Todas'};
+    
     try {
       const shared=currentUser?.role==='admin' && confirm('Compartilhar este filtro com os demais usuários da empresa?');
       await api('saved-views','POST',{name:name.trim(),entity_type:entityType,filters,is_shared:shared});
@@ -1759,7 +1766,7 @@
     const phone=document.getElementById('settingPhone')?.value||null;
     const timezone=document.getElementById('settingTimezone')?.value||'America/Sao_Paulo';
     const currency=document.getElementById('settingCurrency')?.value||'BRL';
-    let localTheme='dark',localAccent='#24466f';try{localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;const storedAccent=localStorage.getItem('nexo-crm-accent');localAccent=(storedAccent&&storedAccent.toLowerCase()!=='#788d52')?storedAccent:localAccent;}catch(_){}
+    let localTheme='dark',localAccent='#052D60';try{localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;const storedAccent=localStorage.getItem('nexo-crm-accent');localAccent=(storedAccent&&storedAccent.toLowerCase()!=='#788d52')?storedAccent:localAccent;}catch(_){}
     try {const logo_data=pendingCompanyLogo===undefined?(companySettings?.logo_data||null):(pendingCompanyLogo||null);await api('settings','POST',{name,email,phone,timezone,currency,theme_mode:companySettings?.theme_mode||localTheme,accent_color:companySettings?.accent_color||localAccent,logo_data});pendingCompanyLogo=undefined;await loadRemoteState();render();showToast('Configurações salvas no Supabase.');}
     catch(e){showToast(e.message||'Não foi possível salvar as configurações.');}
   };
@@ -1783,51 +1790,58 @@
     catch(e){showToast(e.message||'Não foi possível excluir a coluna.');}
   };
   window.settingsPage = function() {
-    const name=companySettings?.name||'';const email=companySettings?.email||'';const phone=companySettings?.phone||'';const timezone=companySettings?.timezone||'America/Sao_Paulo';const currency=companySettings?.currency||'BRL';
-    let localTheme='dark',localAccent='#24466f';try{localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;const storedAccent=localStorage.getItem('nexo-crm-accent');localAccent=(storedAccent&&storedAccent.toLowerCase()!=='#788d52')?storedAccent:localAccent;}catch(_){}
-    const theme=companySettings?.theme_mode||localTheme;const accent=cleanHex(companySettings?.accent_color||localAccent);
+    let localTheme='dark',localAccent='#052D60';
+    try {
+      localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;
+      localAccent=localStorage.getItem('nexo-crm-accent')||localAccent;
+    } catch(_) {}
+    const theme=companySettings?.theme_mode||localTheme;
+    const accent=cleanHex(companySettings?.accent_color||localAccent);
     const canManage=currentUser?.role==='admin';
+    const tabs=[
+      ['aparencia','Aparência'],
+      ['funil','Colunas do funil'],
+      ['filtros','Filtros salvos'],
+      ['campos','Campos personalizados'],
+      ['dados','Dados e exportação'],
+      ['licenca','Sobre o Cirandaê']
+    ];
+    if(!tabs.some(([key])=>key===activeSettings)) activeSettings='aparencia';
     let contents='';
+
     if(activeSettings==='aparencia') {
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
-      contents=`<h3 class="settings-section-title">Aparência do NEXO</h3><p class="settings-section-desc">Escolha a cor de destaque e alterne entre o modo escuro e o modo branco. A visualização muda imediatamente.</p><div class="form-field" style="max-width:360px"><label for="settingThemeMode">Tema</label><select id="settingThemeMode" onchange="previewNexoAppearance()"><option value="dark" ${theme==='dark'?'selected':''}>Modo escuro</option><option value="light" ${theme==='light'?'selected':''}>Modo branco (claro)</option></select></div><div class="theme-control"><div><label for="settingAccentColor" style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px">Escolha qualquer cor</label><div class="theme-wheel-wrap"><input id="settingAccentColor" type="color" value="${accent}" oninput="previewNexoAppearance()" aria-label="Abrir seletor de cores"><span id="accentHexValue">${accent.toUpperCase()}</span></div><p class="form-help">Clique no círculo para abrir o seletor de cores completo.</p></div><div class="theme-palette-side"><div style="font-size:11px;font-weight:700">Paleta rápida · 32 cores</div><p class="form-help">Inclui azul-escuro padrão e verde militar.</p><div class="theme-swatches">${swatches}</div></div></div><div class="appearance-preview"><div class="appearance-preview-mark"><svg viewBox="0 0 40 40" width="26" height="26"><path d="M7 8h8.5L25 22V8h8v24h-8L15 18v14H7z" fill="currentColor"/></svg></div><div style="flex:1"><strong style="display:block">Prévia NEXO CRM</strong><span class="card-sub">Esta é a combinação de cores selecionada.</span></div><button class="btn primary small" type="button" onclick="previewNexoAppearance()">Aplicar prévia</button></div>${canManage?button('Salvar aparência para a empresa','saveNexoAppearance()',true,'check'):'<p class="form-help">Apenas um administrador pode salvar a aparência para toda a empresa. O tema da prévia ficará neste navegador.</p>'}<p class="form-help" style="margin-top:12px">A preferência é aplicada imediatamente neste navegador. Ao salvar, ela será compartilhada com os usuários desta instalação.</p>`;
-    } else if(activeSettings==='empresa') {
-      contents=`<h3 class="settings-section-title">Dados da empresa</h3><p class="settings-section-desc">Identidade visual e informações da empresa vinculada a esta instalação.</p><div class="company-logo-field"><div class="company-logo-preview" id="companyLogoPreview">${companyLogoPreviewMarkup()}</div><div class="company-logo-controls"><label for="settingLogoFile" style="font-size:11px;font-weight:750">Logo da empresa</label><input id="settingLogoFile" type="file" accept="image/png,image/jpeg,image/webp" onchange="previewCompanyLogo(this)"><span class="company-logo-preview-note">PNG, JPG ou WebP. Máximo de 5 MB. A imagem é reduzida no navegador antes de ser armazenada como configuração da empresa.</span><div><button class="btn ghost small" type="button" onclick="removeCompanyLogo()">Remover logo</button></div></div></div><div class="form-grid"><div class="form-field"><label>Nome da empresa</label><input id="settingCompany" value="${esc(name)}" placeholder="Sua empresa" oninput="updateCompanyInitialPreview(this.value)"></div><div class="form-field"><label>E-mail de contato</label><input id="settingEmail" type="email" value="${esc(email)}" placeholder="contato@empresa.com.br"></div><div class="form-field"><label>Telefone</label><input id="settingPhone" value="${esc(phone)}" placeholder="Telefone comercial"></div><div class="form-field"><label>Fuso horário</label><select id="settingTimezone"><option value="America/Sao_Paulo" ${timezone==='America/Sao_Paulo'?'selected':''}>America/Sao_Paulo</option><option value="UTC" ${timezone==='UTC'?'selected':''}>UTC</option></select></div><div class="form-field"><label>Moeda</label><select id="settingCurrency"><option value="BRL" ${currency==='BRL'?'selected':''}>Real brasileiro (BRL)</option><option value="USD" ${currency==='USD'?'selected':''}>Dólar americano (USD)</option><option value="EUR" ${currency==='EUR'?'selected':''}>Euro (EUR)</option></select></div></div><div style="margin-top:20px">${button('Salvar alterações','saveSettings()',true,'check')}</div>`;
-    } else if(activeSettings==='usuarios') {
-      contents=`<h3 class="settings-section-title">Usuários e acesso</h3><p class="settings-section-desc">Acesso à instalação e perfil de cada integrante.</p>${canManage?`<div style="margin-bottom:15px"><p class="form-help">Para adicionar pessoas: Supabase → Authentication → Users → Add user. O perfil será criado automaticamente pelo banco. Não habilite cadastro público nesta instalação.</p></div>`:''}<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Perfil</th><th>Status</th>${canManage?'<th>Ação</th>':''}</tr></thead><tbody>${(state.users||[]).map(u=>`<tr><td>${esc(u.name)}</td><td>${esc(u.email||'')}</td><td>${esc(({admin:'Administrador',manager:'Gerente',sales:'Vendedor'})[u.role]||u.role)}</td><td>${Number(u.is_active)!==0?'Ativo':'Desativado'}</td>${canManage?`<td>${Number(u.id)!==Number(currentUser.id)?`<button class="inline-action" onclick="toggleUser(${u.id},${Number(u.is_active)!==0?0:1})">${Number(u.is_active)!==0?'Desativar':'Ativar'}</button>`:'Você'}</td>`:''}</tr>`).join('')||'<tr><td colspan="5">Nenhum usuário encontrado.</td></tr>'}</tbody></table></div><p class="form-help">As senhas são administradas pelo Supabase Auth e nunca aparecem nesta tela.</p>`;
+      contents=`<h3 class="settings-section-title">Aparência do Cirandaê</h3>
+        <p class="settings-section-desc">Escolha a cor de destaque e o tema visual do CRM. A prévia é aplicada imediatamente.</p>
+        <div class="form-field" style="max-width:360px"><label for="settingThemeMode">Tema</label><select id="settingThemeMode" onchange="previewNexoAppearance()"><option value="dark" ${theme==='dark'?'selected':''}>Modo escuro</option><option value="light" ${theme==='light'?'selected':''}>Modo claro</option></select></div>
+        <div class="theme-control"><div><label for="settingAccentColor" style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px">Cor de destaque</label><div class="theme-wheel-wrap"><input id="settingAccentColor" type="color" value="${accent}" oninput="previewNexoAppearance()" aria-label="Escolher cor de destaque"><span id="accentHexValue">${accent.toUpperCase()}</span></div><p class="form-help">Use o seletor para escolher qualquer cor.</p></div><div class="theme-palette-side"><div style="font-size:11px;font-weight:700">Paleta rápida</div><p class="form-help">Inclui o azul da identidade Cirandaê.</p><div class="theme-swatches">${swatches}</div></div></div>
+        <div class="appearance-preview"><div class="appearance-preview-mark"><img src="cirandae-logo.svg" alt="" style="width:28px;height:28px;object-fit:contain"></div><div style="flex:1"><strong style="display:block">Prévia Cirandaê CRM</strong><span class="card-sub">Identidade visual do sistema.</span></div><button class="btn primary small" type="button" onclick="previewNexoAppearance()">Aplicar prévia</button></div>
+        ${canManage?button('Salvar aparência','saveNexoAppearance()',true,'check'):'<p class="form-help">Apenas o acesso administrador pode salvar a aparência.</p>'}
+      `;
     } else if(activeSettings==='filtros') {
-      const views=(state.savedViews||[]).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
-      const viewRows=views.map(v=>`<div class="custom-field-row"><div><strong>${esc(v.name)}</strong><small>${esc(({contacts:'Contatos',deals:'Oportunidades',tasks:'Tarefas'})[v.entity_type]||v.entity_type)} · ${v.is_shared?'Compartilhado com a equipe':'Pessoal'}</small></div><button class="btn small ghost" onclick="applySavedView('${Number(v.id)}')">Abrir filtro</button><div class="custom-field-row-actions"><button class="btn small ghost" onclick="deleteSavedView(${Number(v.id)})">Excluir</button></div></div>`).join('');
-      contents=`<h3 class="settings-section-title">Filtros salvos</h3><p class="settings-section-desc">Guarde combinações de busca e situação para voltar rapidamente às listas que você usa. O administrador também pode compartilhar filtros com a equipe.</p><div class="custom-field-list">${viewRows||'<div class="empty"><strong>Nenhum filtro salvo</strong>Abra Contatos, Funil ou Tarefas e use “Salvar filtro” para guardar uma visualização.</div>'}</div>`;
+      const views=(state.savedViews||[]).filter(v=>['contacts','deals'].includes(v.entity_type)).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
+      const viewRows=views.map(v=>`<div class="custom-field-row"><div><strong>${esc(v.name)}</strong><small>${v.entity_type==='contacts'?'Contatos':'Oportunidades'} · ${v.is_shared?'Compartilhado':'Pessoal'}</small></div><button class="btn small ghost" onclick="applySavedView('${Number(v.id)}')">Abrir filtro</button><div class="custom-field-row-actions"><button class="btn small ghost" onclick="deleteSavedView(${Number(v.id)})">Excluir</button></div></div>`).join('');
+      contents=`<h3 class="settings-section-title">Filtros salvos</h3><p class="settings-section-desc">Guarde pesquisas e filtros de contatos e oportunidades.</p><div class="custom-field-list">${viewRows||'<div class="empty"><strong>Nenhum filtro salvo</strong>Use “Salvar filtro” nas listas de contatos ou no funil.</div>'}</div>`;
     } else if(activeSettings==='campos') {
-      const definitions=(state.customFields||[]).slice().sort((a,b)=>a.position-b.position);
-      const rows=definitions.map(f=>`<div class="custom-field-row"><div><strong>${esc(f.label)}</strong><small>${esc(f.entity_type)} · ${esc(f.field_type)} · ${esc(f.field_key)}</small></div><span class="status ${f.is_active?'light':'muted'}">${f.is_active?'Ativo':'Desativado'}</span><div class="custom-field-row-actions">${canManage?`<button class="btn small ghost" onclick="toggleCustomField(${Number(f.id)},${f.is_active?0:1})">${f.is_active?'Desativar':'Ativar'}</button>`:''}</div></div>`).join('');
-      contents=`<h3 class="settings-section-title">Campos personalizados</h3><p class="settings-section-desc">Crie campos para registrar informações específicas da sua operação em contatos, oportunidades e tarefas. Os campos ficam disponíveis nos formulários correspondentes.</p>${canManage?`<form class="custom-field-create" onsubmit="createCustomField(event)"><div class="form-grid"><div class="form-field"><label>Nome do campo</label><input name="label" maxlength="80" required placeholder="Ex.: Segmento do negócio"></div><div class="form-field"><label>Aplicar em</label><select name="entity_type"><option value="contacts">Contatos</option><option value="deals">Oportunidades</option><option value="tasks">Tarefas</option></select></div><div class="form-field"><label>Tipo de campo</label><select name="field_type" onchange="toggleCustomFieldOptions(this)"><option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="select">Lista de opções</option><option value="checkbox">Caixa de seleção</option><option value="email">E-mail</option><option value="url">Link</option></select></div><div class="form-field custom-field-options-wrap" hidden><label>Opções (separadas por vírgula)</label><input name="options" placeholder="Ex.: Pequeno, Médio, Grande"></div></div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">${ico('plus',14)} Criar campo</button></div></form>`:'<p class="form-help">Somente administradores podem criar ou desativar campos.</p>'}<div class="custom-field-list">${rows||'<div class="empty">Nenhum campo personalizado foi criado ainda.</div>'}</div><p class="form-help">Desativar um campo preserva os valores históricos. Seus registros continuam no banco.</p>`;
+      const definitions=(state.customFields||[]).filter(f=>['contacts','deals'].includes(f.entity_type)).slice().sort((a,b)=>a.position-b.position);
+      const rows=definitions.map(f=>`<div class="custom-field-row"><div><strong>${esc(f.label)}</strong><small>${f.entity_type==='contacts'?'Contatos':'Oportunidades'} · ${esc(f.field_type)}</small></div><span class="status ${f.is_active?'light':'muted'}">${f.is_active?'Ativo':'Desativado'}</span><div class="custom-field-row-actions">${canManage?`<button class="btn small ghost" onclick="toggleCustomField(${Number(f.id)},${f.is_active?0:1})">${f.is_active?'Desativar':'Ativar'}</button>`:''}</div></div>`).join('');
+      contents=`<h3 class="settings-section-title">Campos personalizados</h3><p class="settings-section-desc">Adicione informações específicas aos contatos e às oportunidades de recreação.</p>
+        ${canManage?`<form class="custom-field-create" onsubmit="createCustomField(event)"><div class="form-grid"><div class="form-field"><label>Nome do campo</label><input name="label" maxlength="80" required placeholder="Ex.: Tipo de evento"></div><div class="form-field"><label>Aplicar em</label><select name="entity_type"><option value="contacts">Contatos</option><option value="deals">Oportunidades</option></select></div><div class="form-field"><label>Tipo de campo</label><select name="field_type" onchange="toggleCustomFieldOptions(this)"><option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="select">Lista de opções</option><option value="checkbox">Caixa de seleção</option><option value="email">E-mail</option><option value="url">Link</option></select></div><div class="form-field custom-field-options-wrap" hidden><label>Opções (separadas por vírgula)</label><input name="options" placeholder="Ex.: Aniversário, Escola, Condomínio"></div></div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">${ico('plus',14)} Criar campo</button></div></form>`:'<p class="form-help">Acesso de administrador necessário para alterar campos.</p>'}
+        <div class="custom-field-list">${rows||'<div class="empty">Nenhum campo personalizado cadastrado.</div>'}</div><p class="form-help">Desativar um campo preserva os valores antigos.</p>`;
     } else if(activeSettings==='funil') {
       const pipelineId=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id||0);
-      const stages=(state.pipelineStages||[]).filter(s=>!pipelineId||Number(s.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
+      const stages=(state.pipelineStages||[]).filter(st=>!pipelineId||Number(st.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
       const rows=stages.map((stage,i)=>`<div class="stage-manage-row"><div class="stage-number">${i+1}</div><div><label class="form-help" for="stageName-${stage.id}">Nome da coluna</label><input id="stageName-${stage.id}" maxlength="80" value="${esc(stage.name)}" ${canManage?'':'disabled'}></div><div class="stage-probability-field"><label class="form-help" for="stageProbability-${stage.id}">Probabilidade (%)</label><input id="stageProbability-${stage.id}" type="number" min="0" max="100" value="${Number(stage.probability)||0}" ${canManage?'':'disabled'}></div><div class="stage-type-field"><label class="form-help" for="stageType-${stage.id}">Classificação</label><select id="stageType-${stage.id}" ${canManage?'':'disabled'}><option value="open" ${!stage.is_won&&!stage.is_lost?'selected':''}>Em andamento</option><option value="won" ${stage.is_won?'selected':''}>Ganho</option><option value="lost" ${stage.is_lost?'selected':''}>Perdido</option></select></div>${canManage?`<button class="btn small primary stage-save-button" onclick="savePipelineStage(${stage.id})">Salvar</button><button class="btn small ghost stage-delete-button" onclick="deletePipelineStage(${stage.id})" aria-label="Excluir coluna">Excluir</button>`:'<span></span><span></span>'}</div>`).join('');
-      contents=`<h3 class="settings-section-title">Colunas do funil</h3><p class="settings-section-desc">Renomeie colunas, ajuste a probabilidade e defina quais representam negócios ganhos ou perdidos. Para criar novas colunas, use o botão “Nova coluna” no funil.</p>${canManage?`<div class="form-help">Só é possível excluir uma coluna vazia. O sistema impede apagar etapas que ainda contenham oportunidades.</div>`:'<p class="form-help">Somente o administrador pode alterar as colunas.</p>'}<div class="stage-management-list">${rows||'<div class="empty">Nenhuma coluna cadastrada.</div>'}</div>`;
-    } else if(activeSettings==='assinatura') {
-      contents=`<h3 class="settings-section-title">Plano e assinatura</h3>
-        <p class="settings-section-desc">Área de preparação comercial do NEXO CRM. A cobrança recorrente ainda não está conectada; esta tela não altera seu plano e não efetua pagamentos.</p>
-        <div class="subscription-state-card" style="display:flex;align-items:flex-start;gap:14px;padding:17px;border:1px solid var(--line);border-radius:13px;background:var(--panel2);margin:12px 0 16px">
-          <span style="width:36px;height:36px;flex:none;display:grid;place-items:center;border-radius:10px;background:var(--accent-soft);color:var(--accent)">${ico('check',18)}</span>
-          <div style="min-width:0;flex:1"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><strong style="font-size:13px">Instalação dedicada · uma empresa</strong><span class="status light">Modelo atual</span></div><p class="card-sub" style="line-height:1.7;margin-top:7px">Este projeto Supabase contém a instalação atual do NEXO. Para atender uma empresa que queira o sistema exclusivamente para ela, a opção mais segura no curto prazo é provisionar um projeto Supabase e uma publicação separados, mantendo os dados dessa empresa isolados por implantação.</p></div>
-        </div>
-        <div class="subscription-option-grid" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:0 0 16px">
-          <article class="card" style="padding:16px;background:var(--panel)"><div class="eyebrow">Opção A</div><h4 style="margin:5px 0 8px;font-size:14px">Cliente exclusivo</h4><p class="card-sub" style="line-height:1.7">Uma implantação e um banco por empresa. Mais simples para oferecer exclusividade e limitar o impacto de incidentes entre clientes.</p><ul style="padding-left:17px;margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.8"><li>Projeto Supabase separado</li><li>Configuração e backups próprios</li><li>Publicação/versionamento independente</li></ul><span class="status" style="margin-top:13px">Pode ser planejado sem alterar o banco atual</span></article>
-          <article class="card" style="padding:16px;background:var(--panel)"><div class="eyebrow">Opção B</div><h4 style="margin:5px 0 8px;font-size:14px">SaaS multiempresa</h4><p class="card-sub" style="line-height:1.7">Muitos clientes no mesmo serviço. Exige isolamento de ponta a ponta no banco, no armazenamento e em todas as operações.</p><ul style="padding-left:17px;margin:12px 0 0;color:var(--muted);font-size:11px;line-height:1.8"><li>Tabela de empresas e membros</li><li>company_id em todos os dados de negócio</li><li>RLS com testes cruzados de acesso</li><li>Assinaturas, cobrança e webhooks</li></ul><span class="status muted" style="margin-top:13px">Planejado · não ativado</span></article>
-        </div>
-        <div class="card" style="padding:16px;margin-bottom:14px"><div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap"><div><strong style="font-size:13px">Assinatura e pagamentos</strong><p class="card-sub" style="line-height:1.7;margin-top:5px">Nenhum gateway de pagamento está conectado. Ainda não há plano ativo, checkout, período de teste, cobrança ou suspensão automática implementados.</p></div><span class="status muted">Não configurado</span></div><button type="button" class="btn ghost" disabled aria-disabled="true" style="margin-top:12px;opacity:.65;cursor:not-allowed">Cobrança será configurada em fase futura</button></div>
-        <div class="form-help">Nenhuma migração multiempresa foi executada por esta tela. Antes de alterar a estrutura, faça backup e teste a restauração. O modo multiempresa só será habilitado depois de implementar e validar políticas RLS para impedir acesso cruzado entre empresas.</div>
-        <style>@media(max-width:760px){.subscription-option-grid{grid-template-columns:1fr!important}}</style>`;
+      contents=`<h3 class="settings-section-title">Colunas do funil</h3><p class="settings-section-desc">Ajuste as etapas que representam o andamento de um pedido comercial.</p><div class="stage-management-list">${rows||'<div class="empty">Nenhuma etapa cadastrada.</div>'}</div>`;
     } else if(activeSettings==='dados') {
-      contents=`<h3 class="settings-section-title">Dados e exportação</h3><p class="settings-section-desc">Exporte dados para cópia externa. Para backup completo, use os recursos de backup/exportação disponíveis no painel do Supabase.</p><div class="toggle-row"><div class="toggle-copy"><strong>Exportar contatos</strong><span>Baixe os contatos da base atual em CSV.</span></div>${button('Exportar CSV',"exportCSV('contacts')",false,'download')}</div><div class="toggle-row"><div class="toggle-copy"><strong>Exportar oportunidades</strong><span>Baixe os negócios do funil em CSV.</span></div>${button('Exportar CSV',"exportCSV('deals')",false,'download')}</div><div class="toggle-row"><div class="toggle-copy"><strong>Backup do Supabase</strong><span>Use Supabase Dashboard → Database → Backups/Export para proteger os dados do projeto.</span></div><span class="status">Manual</span></div>`;
+      contents=`<h3 class="settings-section-title">Dados e exportação</h3><p class="settings-section-desc">Exporte os registros comerciais para uma cópia externa.</p>
+        <div class="toggle-row"><div class="toggle-copy"><strong>Exportar contatos</strong><span>Baixe a lista de contatos em CSV.</span></div>${button('Exportar CSV',"exportCSV('contacts')",false,'download')}</div>
+        <div class="toggle-row"><div class="toggle-copy"><strong>Exportar oportunidades</strong><span>Baixe o funil comercial em CSV.</span></div>${button('Exportar CSV',"exportCSV('deals')",false,'download')}</div>
+        <div class="toggle-row"><div class="toggle-copy"><strong>Backup do banco</strong><span>Os backups completos continuam disponíveis no painel do Supabase.</span></div><span class="status">Supabase</span></div>`;
     } else {
-      contents=`<h3 class="settings-section-title">Licença e versão</h3><p class="settings-section-desc">Informações desta instalação do CRM.</p><div class="card" style="padding:18px;background:var(--panel2)"><div class="eyebrow">NEXO CRM</div><div style="font-size:20px;font-weight:750;margin:6px 0">Versão 1.3 · Preparação comercial e SaaS</div><p class="card-sub" style="line-height:1.7">Interface conectada ao Supabase Auth e PostgreSQL. Antes de comercializar, finalize testes de segurança, auditoria, backups e permissões.</p></div>`;
+      contents=`<h3 class="settings-section-title">Cirandaê CRM</h3><p class="settings-section-desc">CRM comercial da operação de recreação infantil.</p><div class="card" style="padding:18px;background:var(--panel2)"><div class="appearance-preview-mark" style="margin-bottom:12px"><img src="cirandae-logo.svg" alt="" style="width:44px;height:44px;object-fit:contain"></div><div style="font-size:20px;font-weight:750;margin:6px 0">Cirandaê CRM</div><p class="card-sub" style="line-height:1.7">Seus contatos e oportunidades ficam salvos no banco de dados conectado ao Supabase. O acesso é feito por login.</p></div>`;
     }
-    return `${pageHeader('PREFERÊNCIAS','Configurações','Personalize a aparência e administre o CRM.')}<div class="settings-layout"><aside class="card settings-nav">${[['empresa','Dados da empresa'],['aparencia','Aparência e cores'],['usuarios','Usuários e acessos'],['filtros','Filtros salvos'],['campos','Campos personalizados'],['funil','Colunas do funil'],['assinatura','Plano e assinatura'],['dados','Dados e backups'],['licenca','Licença e versão']].map(([k,v])=>`<button class="settings-tab ${activeSettings===k?'active':''}" onclick="setSettingsTab('${k}')">${v}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
+    return `${pageHeader('PREFERÊNCIAS','Configurações','Ajustes do Cirandaê CRM.')}<div class="settings-layout"><aside class="card settings-nav">${tabs.map(([key,label])=>`<button class="settings-tab ${activeSettings===key?'active':''}" onclick="setSettingsTab('${key}')">${label}</button>`).join('')}</aside><section class="card view-card">${contents}</section></div>`;
   };
   window.toggleCustomFieldOptions = function(select) {
     const wrap=select?.closest('form')?.querySelector('.custom-field-options-wrap');
@@ -1908,7 +1922,7 @@
   };
 
   window.navLabel = function(page) {
-    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Gestão e análise',settings:'Configurações'})[page] || 'Visão geral';
+    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',followup:'Acompanhamento',reports:'Gestão e análise',settings:'Configurações'})[page] || 'Visão geral';
   };
 
   // Renderização explícita: evita conflitos com os handlers antigos do protótipo inline.
@@ -1920,9 +1934,7 @@
       contacts: window.contactsPage,
       whatsapp: window.whatsappPage,
       pipeline: window.pipelinePage,
-      tasks: window.tasksPage,
       followup: window.followupPage,
-      activities: window.activitiesPage,
       reports: window.reportsPage,
       settings: window.settingsPage
     };
@@ -1937,20 +1949,18 @@
     }
     const cc = document.getElementById('contactCount');
     if (cc) cc.textContent = (state.contacts || []).length;
-    const tc = document.getElementById('taskCount');
-    if (tc) tc.textContent = (state.tasks || []).filter(t => t.status !== 'Concluída' && t.status !== 'Cancelada').length;
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === currentPage));
     const breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb && typeof window.navLabel === 'function') {
       const label = window.navLabel(currentPage);
-      breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${label}</b>`;
+      breadcrumb.innerHTML = `Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>${label}</b>`;
     }
   };
 
   // A navegação usada pelos botões é registrada aqui, depois das telas reais do Supabase.
   // Isso impede que a função antiga da prévia HTML sobrescreva o fluxo de navegação.
   window.navigate = function(page) {
-    const allowed = ['dashboard','contacts','whatsapp','pipeline','tasks','followup','activities','reports','settings'];
+    const allowed = ['dashboard','contacts','whatsapp','pipeline','followup','reports','settings'];
     if (!allowed.includes(page)) {
       console.warn('[NEXO CRM] Rota desconhecida:', page);
       return;
@@ -1959,7 +1969,7 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     const breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) {
-      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',followup:'Acompanhamento',activities:'Atividades',reports:'Gestão e análise',settings:'Configurações'};
+      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',followup:'Acompanhamento',reports:'Gestão e análise',settings:'Configurações'};
       breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
     }
     const sidebar = document.getElementById('sidebar');
@@ -1988,7 +1998,7 @@
 
   // Reinitialize only after the authentication overlay has been attached.
   state=emptyState();
-  applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{const c=localStorage.getItem('nexo-crm-accent');return c||'#24466f';}catch(_){return '#24466f';}})(),false);
+  applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{const c=localStorage.getItem('nexo-crm-accent');return c||'#052D60';}catch(_){return '#052D60';}})(),false);
   ensureAuthMarkup();
   initializeApp();
 })();
