@@ -136,11 +136,11 @@
     const raw=String(login||'').trim().toLowerCase();
     if(raw.includes('@')) return raw; // Compatibilidade com o administrador existente.
     if(!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(raw)) throw new Error('Use um nome de usuário de 3 a 32 caracteres: letras sem acento, números, ponto, hífen ou _.');
-    return raw+'@login.nexo.invalid';
+    return raw+'.nexo@example.com';
   }
   function accountLabel(email) {
     const value=String(email||'');
-    return value.endsWith('@login.nexo.invalid')?value.slice(0,-'@login.nexo.invalid'.length):value;
+    return value.endsWith('.nexo@example.com')?value.slice(0,-'.nexo@example.com'.length):value;
   }
 
   function checkedId(value, label, optional = false) {
