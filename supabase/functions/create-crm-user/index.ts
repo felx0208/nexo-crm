@@ -74,7 +74,7 @@ Deno.serve(async (req: Request) => {
     const name = String(body.name || "").trim();
     const username = String(body.username || "").trim().toLowerCase();
     const password = typeof body.password === "string" ? body.password : "";
-    const email = username + "@login.nexo.invalid";
+    const email = username + ".nexo@example.com";
 
     if (!name || name.length > 120) return json({ error: "Informe um nome com até 120 caracteres." }, 400);
     if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)) {
