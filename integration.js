@@ -1192,13 +1192,40 @@
     const value=Number(normalized);
     return Number.isFinite(value)&&value>0&&value<=9999999999.99?Math.round(value*100)/100:null;
   }
-  function askNegotiationAmount(oldValue) {
-    const raw=prompt('Informe o valor da negociação (R$). Você poderá alterá-lo editando o card.',Number(oldValue)>0?String(oldValue).replace('.',','):'');
-    if(raw===null)return null;
-    const value=parseDealAmount(raw);
-    if(value===null){showToast('Valor inválido. Informe um valor positivo, como 1250,00.');return null;}
-    return value;
+  let negotiationValueResolver=null;
+  function finishNegotiationValue(value) {
+    const modal=document.getElementById('negotiationValueModal');
+    if(modal){modal.classList.remove('open');modal.setAttribute('aria-hidden','true');}
+    const resolver=negotiationValueResolver;negotiationValueResolver=null;
+    if(resolver)resolver(value);
   }
+  window.cancelNegotiationValue=function(){finishNegotiationValue(null);};
+  window.confirmNegotiationValue=function(event){
+    event.preventDefault();
+    const input=document.getElementById('negotiationValueInput');
+    const error=document.getElementById('negotiationValueError');
+    const value=parseDealAmount(input?.value);
+    if(value===null){
+      if(error){error.textContent='Informe um valor maior que zero. Exemplo: 1.250,00.';error.hidden=false;}
+      input?.focus();return;
+    }
+    finishNegotiationValue(value);
+  };
+  function askNegotiationAmount(oldValue) {
+    const modal=document.getElementById('negotiationValueModal');
+    const input=document.getElementById('negotiationValueInput');
+    const error=document.getElementById('negotiationValueError');
+    if(!modal||!input){showToast('Painel de negociação indisponível. Atualize a página.');return Promise.resolve(null);}
+    if(negotiationValueResolver)return Promise.resolve(null);
+    input.value=Number(oldValue)>0?Number(oldValue).toFixed(2).replace('.',','):'';
+    if(error){error.hidden=true;error.textContent='';}
+    modal.classList.add('open');modal.setAttribute('aria-hidden','false');
+    setTimeout(()=>input.focus(),40);
+    return new Promise(resolve=>{negotiationValueResolver=resolve;});
+  }
+  document.addEventListener('keydown',event=>{
+    if(event.key==='Escape'&&negotiationValueResolver){event.preventDefault();window.cancelNegotiationValue();}
+  });
   function stageDisplaysValue(stage) {
     if(!stage || stage.is_lost) return false;
     const label=String(stage.name||'').trim().toLocaleLowerCase('pt-BR');
@@ -1256,7 +1283,7 @@
     const oldStageId=Number(deal.stage_id), oldStage=deal.stage, oldValue=Number(deal.value)||0;
     let negotiatedValue=null;
     if(isNegotiationStage(stage)&&!isNegotiationStage((state.pipelineStages||[]).find(s=>Number(s.id)===oldStageId))){
-      negotiatedValue=askNegotiationAmount(oldValue);
+      negotiatedValue=await askNegotiationAmount(oldValue);
       if(negotiatedValue===null)return;
     }
     const sourceZone=card.parentElement;
@@ -1408,7 +1435,7 @@
       const ds=deals.filter(d=>Number(d.stage_id)===Number(s.id));
       const total=ds.reduce((a,d)=>a+(Number(d.value)||0),0);
       const testCards=blankTestCards.filter(c=>Number(c.stage_id)===Number(s.id)).map(c=>window.blankTestDealCard(c)).join('');
-      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${stageDisplaysValue(s)?ds.length+' · '+money(total):ds.length+' lead(s)'}</span>${canManage?`<details class="stage-options-menu" style="position:relative;margin-left:5px;z-index:12"><summary class="btn small ghost" style="padding:5px;list-style:none" title="Opções da coluna" aria-label="Opções da coluna ${esc(s.name)}">${ico('ellipsis',15)}</summary><div style="position:absolute;right:0;top:100%;min-width:165px;padding:5px;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;z-index:40;box-shadow:0 8px 20px #0009"><button type="button" class="btn small ghost" style="width:100%;justify-content:flex-start" onclick="event.stopPropagation();this.closest('details').open=false;editPipelineStageName(${Number(s.id)})">${ico('pencil',12)} Editar nome</button><button type="button" class="btn small ghost" style="width:100%;justify-content:flex-start" onclick="event.stopPropagation();this.closest('details').open=false;deletePipelineStage(${Number(s.id)})">${ico('trash-2',12)} Excluir coluna</button></div></details>`:''}</div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
+      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${stageDisplaysValue(s)?ds.length+' · '+money(total):ds.length+' lead(s)'}</span>${canManage?`<details class="stage-options-menu" style="position:relative;margin-left:5px;z-index:12"><summary class="btn small ghost" style="padding:5px;list-style:none" title="Opções da coluna" aria-label="Opções da coluna ${esc(s.name)}">${ico('ellipsis',15)}</summary><div class="stage-options-popover"><button type="button" class="stage-menu-action" onclick="event.stopPropagation();this.closest('details').open=false;editPipelineStageName(${Number(s.id)})"><span class="stage-action-art stage-action-art-edit">${ico('pencil',17)}</span><span class="stage-action-copy"><strong>Editar nome</strong><small>Renomear esta etapa</small></span></button><button type="button" class="stage-menu-action stage-menu-action-danger" onclick="event.stopPropagation();this.closest('details').open=false;deletePipelineStage(${Number(s.id)})"><span class="stage-action-art stage-action-art-delete">${ico('trash-2',17)}</span><span class="stage-action-copy"><strong>Excluir coluna</strong><small>Remover etapa vazia</small></span></button></div></details>`:''}</div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
     }).join('');
     const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
