@@ -1673,7 +1673,7 @@
 
   window.openModal = function(type,id=null,stage=null) {
     modalType=type; editingId=id;
-    const arr={contact:state.contacts,deal:state.deals,task:state.tasks,activity:state.activities,user:state.users}[type]||[];
+    const arr={contact:state.contacts,deal:state.deals,task:state.tasks,activity:state.activities}[type]||[];
     const item=id?arr.find(x=>Number(x.id)===Number(id)):null;
     let title='',subtitle='',fields='';
     const ownerSelected=item?.owner_id || item?.assigned_to || '';
@@ -1704,9 +1704,6 @@
     } else if(type==='activity') {
       title='Registrar atividade'; subtitle='Registre uma interação ou observação no histórico.';
       fields=`<div class="form-grid">${formField('Título *','title',inputMarkup('title','','text','Ex.: Ligação de acompanhamento'))}${formField('Tipo','type',selectMarkup('type',['note','call','meeting','email','stage_change','status_change','other'].map(x=>({value:x,label:({note:'Nota',call:'Ligação',meeting:'Reunião',email:'E-mail',stage_change:'Mudança de etapa',status_change:'Mudança de status',other:'Outro'})[x]})),'note'))}${formField('Contato relacionado','contact_id',selectMarkup('contact_id',[{value:'',label:'Sem contato'},...contactsOptions()],'','Sem contato'))}${formField('Descrição','body',textareaMarkup('body','','O que aconteceu?'),true)}</div><p class="form-help">Para atualizar o indicador de contato do funil, registre uma Ligação, Reunião ou E-mail. Uma Nota genérica não conta como interação.</p>`;
-    } else if(type==='user') {
-      title='Novo usuário'; subtitle='Crie um acesso para alguém da equipe. Use uma senha forte.';
-      fields=`<div class="form-grid">${formField('Nome *','name',inputMarkup('name','','text','Nome completo'))}${formField('E-mail *','email',inputMarkup('email','','email','usuario@empresa.com.br'))}${formField('Senha * (12 caracteres ou mais)','password',inputMarkup('password','','password','Senha inicial'))}${formField('Perfil','role',selectMarkup('role',[{value:'sales',label:'Vendedor'},{value:'manager',label:'Gerente'},{value:'admin',label:'Administrador'}],'sales'))}</div>`;
     }
     document.getElementById('modalTitle').textContent=title; document.getElementById('modalSubtitle').textContent=subtitle;
     document.getElementById('modalBody').innerHTML=fields; document.getElementById('modalSubmit').textContent=item?'Salvar alterações':'Salvar';
@@ -1783,11 +1780,6 @@
         if(!d.title?.trim()) throw new Error('Informe o título da atividade.');
         await api('activities','POST',{title:d.title.trim(),body:d.body||null,type:d.type||'note',contact_id:d.contact_id?Number(d.contact_id):null});
         showToast('Atividade registrada.');
-      } else if(modalType==='user') {
-        if(!d.name?.trim()||!d.email?.trim()||!d.password) throw new Error('Preencha nome, e-mail e senha.');
-        if(d.password.length<12) throw new Error('A senha precisa ter pelo menos 12 caracteres.');
-        await api('users','POST',{name:d.name.trim(),email:d.email.trim(),password:d.password,role:d.role||'sales'});
-        showToast('Usuário criado.');
       }
       closeModal(); await loadRemoteState(); render();
     } catch(err) { showToast(err.message||'Não foi possível salvar o registro.'); }
