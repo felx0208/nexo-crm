@@ -534,15 +534,14 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
 .stage-options-menu>summary{display:flex;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer;border:1px solid var(--line2);border-radius:8px;color:var(--text);background:var(--panel2)}
 .stage-options-menu>summary::-webkit-details-marker{display:none}
 .stage-options-menu[open]>summary{border-color:var(--accent,var(--olive));background:var(--panel)}
-.stage-options-popover{position:absolute;right:0;top:calc(100% + 8px);width:232px;padding:7px;background:var(--panel);border:1px solid var(--line2);border-radius:14px;z-index:80;box-shadow:0 18px 45px #0009}
-.stage-menu-action{display:flex;align-items:center;gap:11px;width:100%;padding:10px 9px;border:0;border-radius:10px;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.stage-options-popover{position:absolute;right:0;top:calc(100% + 6px);width:172px;padding:5px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;z-index:80;box-shadow:0 12px 28px #0008}
+.stage-menu-action{display:flex;align-items:center;gap:9px;width:100%;min-height:38px;padding:8px 10px;border:0;border-radius:7px;background:transparent;color:var(--text);text-align:left;cursor:pointer;font:inherit}
 .stage-menu-action:hover,.stage-menu-action:focus-visible{background:var(--panel2)}
-.stage-action-art{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;border:1px solid var(--line2);background:var(--accent-soft,var(--panel2))}
-.stage-action-art svg{width:18px;height:18px}
-.stage-action-art-delete{background:rgba(201,79,79,.09);border-color:rgba(201,79,79,.22);color:#e99595}
-.stage-action-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
-.stage-action-copy strong{font-size:11px;line-height:1.2}
-.stage-action-copy small{font-size:10px;color:var(--muted);line-height:1.3}
+.stage-action-art{width:19px;height:19px;flex:0 0 19px;display:grid;place-items:center;color:var(--text)}
+.stage-action-art svg{width:17px;height:17px;display:block}
+.stage-action-art-delete{color:#e99595}
+.stage-action-copy{display:block;min-width:0;white-space:nowrap}
+.stage-action-copy strong{font-size:12px;font-weight:600;line-height:1.3;display:block}
 .negotiation-backdrop{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(3,8,8,.77);backdrop-filter:blur(9px)}
 .negotiation-backdrop.open{display:flex}
 .negotiation-dialog{width:min(455px,100%);border:1px solid var(--line2);border-radius:20px;padding:25px;background:var(--panel);color:var(--text);box-shadow:0 28px 90px #000a}
@@ -612,7 +611,7 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
 <div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.03em">Cirandaê CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
 
 <script>
-const ICONS={plus:'<path d="M12 5v14M5 12h14"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',up:'<path d="m5 15 7-7 7 7"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',money:'<path d="M3 7h18v13H3zM3 7l2-3h14l2 3"/><path d="M16 13h5M6 11h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',search:'<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',filter:'<path d="M4 5h16M7 12h10m-7 7h4"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7l.5 2.5a2 2 0 0 1-.6 1.9l-1.3 1.3a16 16 0 0 0 5.8 5.8l1.3-1.3a2 2 0 0 1 1.9-.6l2.5.5a2 2 0 0 1 1.8 2.1Z"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',note:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',chart:'<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-7"/>'};
+const ICONS={plus:'<path d="M12 5v14M5 12h14"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',up:'<path d="m5 15 7-7 7 7"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',money:'<path d="M3 7h18v13H3zM3 7l2-3h14l2 3"/><path d="M16 13h5M6 11h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',search:'<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',filter:'<path d="M4 5h16M7 12h10m-7 7h4"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7l.5 2.5a2 2 0 0 1-.6 1.9l-1.3 1.3a16 16 0 0 0 5.8 5.8l1.3-1.3a2 2 0 0 1 1.9-.6l2.5.5a2 2 0 0 1 1.8 2.1Z"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',note:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',chart:'<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-7"/>',ellipsis:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',pencil:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5Z"/>','trash-2':'<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 10v7M14 10v7"/>'};
 function ico(name,size=16){return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.note}</svg>`}
 const SEED={contacts:[],deals:[],tasks:[],activities:[]};
 let state=loadState();let currentPage='dashboard';let contactFilter='Todos';let taskFilter='Todas';let activeSettings='aparencia';let modalType='';let editingId=null;let searchQuery='';
@@ -751,6 +750,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.5.9-modal-valor-e-menu-20261117"></script>
+<script src="integration.js?v=1.6.0-icones-menu-simples-20261117"></script>
 </body>
 </html>
