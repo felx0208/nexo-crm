@@ -523,19 +523,12 @@
       }
       if (method === 'POST') {
         if(currentUser?.role!=='admin') throw new Error('Somente o administrador pode cadastrar usuários.');
-        const name=checkedText(d.name,'Nome do usuário',120,true);
-        const username=String(d.username||'').trim().toLowerCase();
-        accountEmail(username);
-        const password=typeof d.password==='string'?d.password:'';
-        if(password.length<12) throw new Error('A senha precisa ter pelo menos 12 caracteres.');
-        const {data,error}=await client.functions.invoke('create-crm-user',{body:{name,username,password}});
-        if(error) {
-          let detail=error.message||'Não foi possível criar o acesso.';
-          try { const body=await error.context?.json?.(); detail=body?.error||body?.message||detail; } catch(_) {}
-          throw new Error(detail);
-        }
-        if(data?.error) throw new Error(data.error);
-        return data;
+        const name=checkedText(d.name,'Nome do responsável',120,true);
+        if((d.email||d.password||d.username)) throw new Error('Para responsáveis, informe somente o nome.');
+        const duplicate=throwIfError(await client.from('users').select('id').ilike('name',name).eq('role','sales').limit(1));
+        if((duplicate||[]).length) throw new Error('Já existe um responsável com este nome.');
+        const created=throwIfError(await client.from('users').insert({name,role:'sales',is_active:true}).select('id,name,role,is_active').single());
+        return {ok:true,user:created};
       }
       if (method === 'PATCH' || method === 'PUT') {
         if(currentUser?.role!=='admin') throw new Error('Somente o administrador pode alterar usuários.');
@@ -1882,28 +1875,23 @@
 
     if(activeSettings==='usuarios') {
       const staff=(state.users||[]).filter(u=>u.role!=='admin').slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
-      const rows=staff.map(u=>'<tr><td>'+esc(u.name)+'</td><td>'+esc(u.username||u.email||'')+'</td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td><button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button></td></tr>').join('');
-      contents='<h3 class="settings-section-title">Usuários e responsáveis</h3>'+
-        '<p class="settings-section-desc">Cadastre as pessoas da equipe que poderão ser atribuídas aos leads. O acesso de administrador é separado e não aparece como responsável.</p>'+
+      const rows=staff.map(u=>'<tr><td>'+esc(u.name)+'</td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td><button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button></td></tr>').join('');
+      contents='<h3 class="settings-section-title">Responsáveis pelos leads</h3>'+
+        '<p class="settings-section-desc">Cadastre apenas os nomes da equipe para identificar quem acompanha cada lead. Não é necessário e-mail, senha nem login individual.</p>'+
         '<form class="custom-field-create" onsubmit="createCrmUser(event)">'+
           '<div class="form-grid">'+
             '<div class="form-field"><label>Nome da pessoa *</label><input name="name" maxlength="120" required placeholder="Nome de quem vai atender os leads"></div>'+
-            '<div class="form-field"><label>Nome de usuário *</label><input name="username" type="text" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" maxlength="32" required placeholder="Ex.: betina ou vendedor01"></div>'+
-            '<div class="form-field"><label>Senha inicial *</label><input name="password" type="password" minlength="12" required placeholder="Mínimo de 12 caracteres"></div>'+
+            
+            
           '</div>'+
-          '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Criar usuário</button></div>'+
+          '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Adicionar responsável</button></div>'+
         '</form>'+
-        '<div style="margin-top:22px;padding:16px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)">'+
-          '<h4 style="font-size:12px;margin:0 0 7px">Criar equipe inicial</h4>'+
-          '<p class="form-help" style="margin-bottom:12px">Cadastre Isaque, Lucas e Pedro em uma única operação, cada um com seu próprio nome de usuário. Informe a senha inicial uma vez; ela não será armazenada no código.</p>'+
-          '<form onsubmit="createInitialCrmTeam(event)"><div class="form-field"><label>Senha inicial para os três usuários</label><input name="password" type="password" minlength="12" required autocomplete="new-password" placeholder="Mínimo de 12 caracteres"></div>'+
-          '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button type="submit" class="btn primary">Criar Isaque, Lucas e Pedro</button></div></form></div>'+
-        '<div style="margin-top:22px"><h4 style="font-size:12px;margin:0 0 10px">Equipe cadastrada</h4>'+
-          '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>Usuário</th><th>Status</th><th>Acesso</th></tr></thead><tbody>'+
-          (rows||'<tr><td colspan="4">Nenhuma pessoa cadastrada. Crie o primeiro usuário acima.</td></tr>')+
+                '<div style="margin-top:22px"><h4 style="font-size:12px;margin:0 0 10px">Equipe cadastrada</h4>'+
+          '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>Status</th><th>Cadastro</th></tr></thead><tbody>'+
+          (rows||'<tr><td colspan="3">Nenhum responsável cadastrado.</td></tr>')+
           '</tbody></table></div>'+
         '</div>'+
-        '<p class="form-help" style="margin-top:12px">Os novos usuários recebem acesso de equipe, não de administrador. O nome de usuário e a senha serão usados para entrar no CRM. Não é necessário informar e-mail.</p>';
+        '<p class="form-help" style="margin-top:12px">Esses nomes são usados somente na atribuição de leads e tarefas. O acesso ao CRM continua protegido pela conta administradora.</p>';
     } else if(activeSettings==='aparencia') {
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
       contents=`<h3 class="settings-section-title">Aparência do Cirandaê</h3>
@@ -1963,44 +1951,18 @@
     const form=event.target;
     const data=Object.fromEntries(new FormData(form).entries());
     const submit=form.querySelector('button[type="submit"]');
-    if(submit){submit.disabled=true;submit.textContent='Criando acesso...';}
+    if(submit){submit.disabled=true;submit.textContent='Adicionando...';}
     try {
-      await api('users','POST',{name:data.name,username:data.username,password:data.password});
+      await api('users','POST',{name:data.name});
       form.reset();
       await loadRemoteState();
       render();
-      showToast('Usuário criado. Ele já pode entrar com o nome de usuário e a senha cadastrados.');
+      showToast('Responsável adicionado à equipe.');
     } catch(e) {
       showToast(e.message||'Não foi possível criar o usuário.');
-      if(submit){submit.disabled=false;submit.innerHTML=ico('plus',14)+' Criar usuário';}
+      if(submit){submit.disabled=false;submit.innerHTML=ico('plus',14)+' Adicionar responsável';}
     }
   };
-  window.createInitialCrmTeam = async function(event) {
-    event.preventDefault();
-    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode criar usuários.');return;}
-    const form=event.target;
-    const password=String(new FormData(form).get('password')||'');
-    const button=form.querySelector('button[type="submit"]');
-    if(password.length<12){showToast('A senha deve ter pelo menos 12 caracteres.');return;}
-    if(button){button.disabled=true;button.textContent='Criando equipe...';}
-    const team=[['Isaque','isaque'],['Lucas','lucas'],['Pedro','pedro']];
-    const created=[],errors=[];
-    try {
-      const known=await api('users','GET');
-      const existing=new Set((known.data||[]).map(x=>String(x.username||'').toLowerCase()));
-      for(const [name,username] of team){
-        if(existing.has(username)){errors.push(name+': já cadastrado');continue;}
-        try{await api('users','POST',{name,username,password});created.push(name);}
-        catch(e){errors.push(name+': '+(e.message||'erro ao criar'));}
-      }
-      form.reset();
-      await loadRemoteState();render();
-      showToast(created.length+' usuário(s) criado(s).'+(errors.length?' Confira os erros informados.':''));
-      if(errors.length) alert('Resultado do cadastro:\\n'+(created.length?'Criados: '+created.join(', ')+'\\n':'')+'Pendências:\\n'+errors.join('\\n'));
-    }catch(e){showToast(e.message||'Não foi possível cadastrar a equipe.');}
-    finally{if(button){button.disabled=false;button.textContent='Criar Isaque, Lucas e Pedro';}}
-  };
-  
   window.toggleUser = async function(id,active) {
     if(currentUser?.role!=='admin'){showToast('Somente o administrador pode alterar usuários.');return;}
     if(Number(id)===Number(currentUser.id)){showToast('O acesso de administrador não pode ser alterado aqui.');return;}
