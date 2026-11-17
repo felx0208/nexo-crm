@@ -527,6 +527,43 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
 .settings-nav{display:flex;gap:5px;flex-wrap:wrap;padding:10px}
 .settings-tab{width:auto;white-space:nowrap}
 .profile{display:none!important}
+
+/* Painel de negociação e menu ilustrado — CIRANDAÊ */
+.stage-column{overflow:visible}
+.stage-options-menu{flex:none}
+.stage-options-menu>summary{display:flex;align-items:center;justify-content:center;width:28px;height:28px;cursor:pointer;border:1px solid var(--line2);border-radius:8px;color:var(--text);background:var(--panel2)}
+.stage-options-menu>summary::-webkit-details-marker{display:none}
+.stage-options-menu[open]>summary{border-color:var(--accent,var(--olive));background:var(--panel)}
+.stage-options-popover{position:absolute;right:0;top:calc(100% + 8px);width:232px;padding:7px;background:var(--panel);border:1px solid var(--line2);border-radius:14px;z-index:80;box-shadow:0 18px 45px #0009}
+.stage-menu-action{display:flex;align-items:center;gap:11px;width:100%;padding:10px 9px;border:0;border-radius:10px;background:transparent;color:var(--text);text-align:left;cursor:pointer}
+.stage-menu-action:hover,.stage-menu-action:focus-visible{background:var(--panel2)}
+.stage-action-art{width:38px;height:38px;flex:none;display:grid;place-items:center;border-radius:11px;border:1px solid var(--line2);background:var(--accent-soft,var(--panel2))}
+.stage-action-art svg{width:18px;height:18px}
+.stage-action-art-delete{background:rgba(201,79,79,.09);border-color:rgba(201,79,79,.22);color:#e99595}
+.stage-action-copy{display:flex;flex-direction:column;gap:3px;min-width:0}
+.stage-action-copy strong{font-size:11px;line-height:1.2}
+.stage-action-copy small{font-size:10px;color:var(--muted);line-height:1.3}
+.negotiation-backdrop{position:fixed;inset:0;z-index:300;display:none;align-items:center;justify-content:center;padding:18px;background:rgba(3,8,8,.77);backdrop-filter:blur(9px)}
+.negotiation-backdrop.open{display:flex}
+.negotiation-dialog{width:min(455px,100%);border:1px solid var(--line2);border-radius:20px;padding:25px;background:var(--panel);color:var(--text);box-shadow:0 28px 90px #000a}
+.negotiation-top{display:flex;align-items:flex-start;justify-content:space-between;gap:14px}
+.negotiation-icon{width:55px;height:55px;border:1px solid var(--line2);border-radius:17px;background:var(--accent-soft,var(--panel2));display:grid;place-items:center;color:var(--accent,#8fa878)}
+.negotiation-icon svg{width:27px;height:27px}
+.negotiation-close{display:grid;place-items:center;width:31px;height:31px;padding:0;border:1px solid var(--line2);border-radius:9px;background:var(--panel2);color:var(--muted)}
+.negotiation-dialog h2{font-size:21px;letter-spacing:-.035em;line-height:1.25;margin:20px 0 8px}
+.negotiation-dialog .negotiation-help{font-size:12px;color:var(--muted);line-height:1.6;margin:0 0 23px}
+.negotiation-label{font-size:12px;font-weight:700;display:block;margin-bottom:8px}
+.negotiation-input-wrap{display:flex;align-items:center;gap:12px;border:1px solid var(--line2);border-radius:12px;background:var(--bg);padding:4px 15px}
+.negotiation-input-wrap:focus-within{outline:2px solid var(--accent,#879565);outline-offset:1px}
+.negotiation-input-wrap>span{font-size:14px;color:var(--muted);font-weight:700}
+.negotiation-input-wrap input{width:100%;height:48px;border:0;outline:none!important;background:transparent;color:var(--text);font-size:23px;font-weight:750;letter-spacing:-.025em}
+.negotiation-error{font-size:11px;color:#e99595;margin:8px 0 0}
+.negotiation-note{display:flex;align-items:center;gap:8px;color:var(--muted);font-size:11px;margin:12px 0 25px}
+.negotiation-note svg{width:14px;height:14px}
+.negotiation-actions{display:flex;gap:9px;justify-content:flex-end}
+.negotiation-actions .btn{min-height:40px}
+@media(max-width:520px){.negotiation-dialog{padding:20px;border-radius:16px}.negotiation-actions .btn{flex:1}.stage-options-popover{width:205px}}
+
 </style>
 </head>
 <body>
@@ -552,6 +589,25 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
   </main>
 </div>
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="backdropClose(event)"><div class="modal"><div class="modal-head"><div><h2 id="modalTitle">Novo registro</h2><p id="modalSubtitle">Preencha as informações abaixo.</p></div><button class="icon-button" aria-label="Fechar" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><form id="modalForm" onsubmit="submitModal(event)"><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">Cancelar</button><button class="btn primary" id="modalSubmit" type="submit">Salvar registro</button></div></form></div></div>
+
+<div id="negotiationValueModal" class="negotiation-backdrop" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="negotiationValueTitle" onclick="if(event.target===this)cancelNegotiationValue()">
+  <section class="negotiation-dialog">
+    <div class="negotiation-top">
+      <div class="negotiation-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="19" height="14" rx="3"/><path d="M5 6V4.5A2.5 2.5 0 0 1 7.5 2h11"/><circle cx="16.5" cy="13" r="2.5"/><path d="M5.5 13h3"/></svg></div>
+      <button class="negotiation-close" type="button" aria-label="Fechar painel" onclick="cancelNegotiationValue()"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m5 5 14 14M19 5 5 19"/></svg></button>
+    </div>
+    <h2 id="negotiationValueTitle">Definir valor da negociação</h2>
+    <p class="negotiation-help">Qual é o valor desta oportunidade? Ele ficará registrado no card e poderá ser atualizado a qualquer momento.</p>
+    <form onsubmit="confirmNegotiationValue(event)">
+      <label class="negotiation-label" for="negotiationValueInput">Valor da negociação</label>
+      <div class="negotiation-input-wrap"><span>R$</span><input id="negotiationValueInput" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-describedby="negotiationValueError" required></div>
+      <p id="negotiationValueError" class="negotiation-error" role="alert" hidden></p>
+      <div class="negotiation-note"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M12 8v4l2.5 1.5"/><circle cx="12" cy="12" r="9"/></svg><span>Você poderá editar esse valor depois, abrindo o card.</span></div>
+      <div class="negotiation-actions"><button class="btn ghost" type="button" onclick="cancelNegotiationValue()">Cancelar</button><button class="btn primary" type="submit">Confirmar e mover</button></div>
+    </form>
+  </section>
+</div>
+
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 <div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.03em">Cirandaê CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
 
@@ -695,6 +751,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.5.8-menu-valor-negociacao-20261117"></script>
+<script src="integration.js?v=1.5.9-modal-valor-e-menu-20261117"></script>
 </body>
 </html>
