@@ -80,7 +80,7 @@
       throw new Error('A conexão com o Supabase precisa usar HTTPS. Corrija a Project URL em supabase-config.js.');
     }
     if (window.location.protocol !== 'https:' && !isLocalDevelopmentHost(window.location.hostname)) {
-      throw new Error('Abra o NEXO CRM por um endereço HTTPS para proteger os dados durante a transmissão.');
+      throw new Error('Abra o Cirandaê CRM por um endereço HTTPS para proteger os dados durante a transmissão.');
     }
     if (isPrivilegedSupabaseKey(cfg.publishableKey)) {
       throw new Error('A chave configurada é privilegiada e não pode ficar no navegador. Use somente a chave Publishable do Supabase.');
@@ -171,7 +171,7 @@
     const id = d.id ?? query.id;
     const now = new Date().toISOString();
 
-    if (action === 'health') return { ok: true, app: 'NEXO CRM + Supabase' };
+    if (action === 'health') return { ok: true, app: 'Cirandaê CRM + Supabase' };
     if (action === 'setup-status') return { setup_required: false };
     if (action === 'setup-admin') {
       throw new Error('Crie o primeiro usuário em Supabase → Authentication → Users. Execute primeiro o SQL do NEXO CRM; o primeiro usuário criado receberá o perfil Administrador.');
@@ -778,19 +778,9 @@
   }
   function hideAuthGate() { const el=document.getElementById('authGate'); if(el) el.style.display='none'; }
 
-  function showReleaseNotes() {
-    let overlay=document.getElementById('nexoReleaseBackdrop');
-    if(!overlay) {
-      overlay=document.createElement('div'); overlay.id='nexoReleaseBackdrop'; overlay.className='nexo-release-backdrop'; overlay.setAttribute('role','dialog'); overlay.setAttribute('aria-modal','true'); overlay.setAttribute('aria-labelledby','nexoReleaseTitle');
-      overlay.innerHTML=`<section class="nexo-release-dialog"><header class="nexo-release-head"><span class="nexo-release-mark">${ico('chart',21)}</span><div style="flex:1;min-width:0"><h2 id="nexoReleaseTitle">Sobre o Cirandaê CRM</h2><p>CRM comercial para recreação infantil</p></div><button class="icon-button" aria-label="Fechar novidades" onclick="closeReleaseNotes()">${ico('x',18)}</button></header><div class="nexo-release-body"><div class="nexo-release-section"><strong>O que mudou nesta atualização</strong><ul><li>Nova seção <b>Plano e assinatura</b> em Configurações, para documentar o modelo dedicado atual e a futura opção SaaS.</li><li>O isolamento multiempresa e as cobranças recorrentes continuam apenas planejados: nenhum schema de empresa ou gateway foi ativado nesta atualização.</li><li>Na barra lateral recolhida, <b>Sua empresa</b> deixa de ocupar um bloco próprio; o seletor aparece quando a barra expande.</li><li>O roteiro de produto foi atualizado para separar implantação dedicada de arquitetura SaaS compartilhada.</li></ul><div class="nexo-release-section"><strong>Recursos anteriores preservados</strong><ul><li>Gestão e análise, acompanhamento, funil inteligente, temas, cores personalizadas e logo continuam disponíveis.</li><li>WhatsApp oficial continua adiado, conforme o planejamento.</li></ul></div></div><div class="nexo-release-section"><strong>O que permanece em validação</strong><ul><li>Fases 1–3 ainda precisam de testes funcionais completos e conferência dos números no Supabase real.</li><li>As permissões e o backup/restauração precisam ser testados antes de uso comercial.</li><li>O SaaS multiempresa e a cobrança não estão ativos; a tela é informativa e não cria assinatura.</li></ul></div><div class="nexo-release-note"><b>* Validação pendente:</b> esta versão foi preparada no código e verificada sintaticamente, mas os números e permissões precisam ser conferidos no ambiente real antes de considerar a fase concluída.</div></div><footer class="nexo-release-foot"><small>WhatsApp oficial segue adiado. Esta atualização não exige SQL nem altera o banco atual.</small><button type="button" class="btn primary" onclick="closeReleaseNotes()">Entendi, entrar no CRM</button></footer></section>`;
-      overlay.addEventListener('click',e=>{if(e.target===overlay)closeReleaseNotes();});
-      document.body.appendChild(overlay);
-    }
-    overlay.classList.add('open'); releaseNotesVisible=true;
-    const firstButton=overlay.querySelector('button'); if(firstButton) setTimeout(()=>firstButton.focus(),30);
-  }
+  function showReleaseNotes() {}
   window.showReleaseNotes = showReleaseNotes;
-  window.closeReleaseNotes = function(){const el=document.getElementById('nexoReleaseBackdrop');if(el)el.classList.remove('open');releaseNotesVisible=false;};
+  window.closeReleaseNotes = function(){const el=document.getElementById('nexoReleaseBackdrop');if(el)el.remove();releaseNotesVisible=false;};
 
   async function initializeApp() {
     ensureAuthMarkup();
@@ -801,7 +791,7 @@
       const session=await api('me');
       currentUser=session.user; csrfToken=session.csrf || '';
       await loadRemoteState();
-      hideAuthGate(); render(); showReleaseNotes();
+      hideAuthGate(); render();
     } catch (e) {
       if (e.message && (e.message.includes('Faça login') || e.message.includes('Sessão inválida'))) {
         showAuthGate('login'); return;
@@ -827,7 +817,7 @@
         const logged=await api('login','POST',{email:data.email,password:data.password});
         currentUser=logged.user; csrfToken=logged.csrf || '';
       }
-      await loadRemoteState(); hideAuthGate(); render(); showToast(`Bem-vindo, ${currentUser.name}.`); showReleaseNotes();
+      await loadRemoteState(); hideAuthGate(); render(); showToast(`Bem-vindo, ${currentUser.name}.`);
     } catch(e) {
       let nextMode=authMode;
       if(authMode==='setup') { try { const s=await api('setup-status'); nextMode=s.setup_required?'setup':'login'; } catch(_) { nextMode='error'; } }
@@ -935,7 +925,7 @@
   }
   window.statusClass = function(s) { return ['Ganho','Qualificado','Concluída','Cliente'].includes(s)?'light':s==='Inativo'||s==='Cancelada'?'muted':''; };
   window.contactRow = function(c) {
-    return `<tr><td><div class="contact-cell"><div class="avatar">${esc(c.initials||initials(c.name))}</div><div><div class="contact-name">${esc(c.name)}</div><div class="contact-company">${esc(c.company||'—')}</div></div></div></td><td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td><span class="status ${statusClass(c.status)}">${esc(c.status||'Novo lead')}</span></td><td>${esc(c.owner||'—')}</td><td><div style="display:flex;gap:4px;justify-content:flex-end"><button class="icon-button" aria-label="Ver histórico completo do contato" title="Histórico" onclick="openContactTimeline(${c.id})">${ico('clock',15)}</button><button class="icon-button" aria-label="Editar contato" title="Editar contato" onclick="openModal('contact',${c.id})">${ico('dots',17)}</button></div></td></tr>`;
+    return `<tr><td><div class="contact-cell"><div class="avatar">${esc(c.initials||initials(c.name))}</div><div><div class="contact-name">${esc(c.name)}</div><div class="contact-company">${esc(c.company||'—')}</div></div></div></td><td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td><span class="status ${statusClass(c.status)}">${esc(c.status||'Novo lead')}</span></td><td>${esc(c.owner||'—')}</td><td><div style="display:flex;justify-content:flex-end"><button class="icon-button" aria-label="Editar contato" title="Editar contato" onclick="openModal('contact',${c.id})">${ico('dots',17)}</button></div></td></tr>`;
   };
   window.activityItem = function(a) {
     const title=a.title || 'Atividade registrada';
@@ -1464,8 +1454,8 @@
     const deals=allDeals.filter(d=>analyticsMatchesRange(d,analyticsRange,true));
     const allContacts=(state.contacts||[]).filter(c=>!c.deleted_at);
     const contacts=allContacts.filter(c=>analyticsMatchesRange(c,analyticsRange,false));
-    const allTasks=(state.tasks||[]).filter(t=>!t.deleted_at);
-    const activeTasks=allTasks.filter(t=>!['Concluída','Cancelada'].includes(t.status));
+    const missingCloseDate=open.filter(d=>!d.expected_close_date);
+    const lostWithoutReason=lost.filter(d=>!String(d.lost_reason||'').trim());
     const stages=(state.pipelineStages||[]).slice().sort((a,b)=>a.position-b.position);
     const stageById=new Map(stages.map(s=>[Number(s.id),s]));
     const outcome=d=>analyticsDealOutcome(d);
@@ -1589,9 +1579,9 @@
     const monthlyMarkup=months.some(m=>m.count)?`<div class="analytics-forecast-list">${months.map(m=>`<div class="analytics-forecast-item"><div class="analytics-forecast-label">${esc(m.label)} ${m.y}<small>${m.count} venda(s) ganha(s)</small></div><div class="analytics-forecast-bar"><i style="width:${Math.max(0,Math.min(100,m.value/maxMonthly*100))}%"></i></div><div class="analytics-forecast-value">${money(m.value)}</div></div>`).join('')}</div>`:'<div class="analytics-empty">Ainda não há vendas ganhas com data de fechamento registrada nos últimos seis meses.</div>';
 
     const noDateDeals=deals.filter(d=>!analyticsDate(d.created_at));
-    const noNextAction= open.filter(d=>!activeTasks.some(t=>Number(t.deal_id)===Number(d.id)||Number(t.contact_id)===Number(d.contact_id)));
+
     const pageNote=`${noDateDeals.length?` ${noDateDeals.length} oportunidade(s) não têm data de criação legível e foram mantidas no total.`:''}`;
-    return `${pageHeader('INTELIGÊNCIA COMERCIAL','Gestão e análise','Veja resultados, gargalos e próximas previsões com base nos dados registrados.',button('Exportar oportunidades',"exportCSV('deals')",false,'download'))}${filterMarkup}<div class="analytics-kpis">${liveStat('Oportunidades abertas',open.length,'target','No período selecionado')}${liveStat('Pipeline ponderado',money(weightedForecast),'chart','Todas as oportunidades abertas')}${liveStat('Taxa de ganho',winRate===null?'—':winRate+'%','check',`${won.length} ganhos de ${closed.length} encerrados`)}${liveStat('Ciclo médio',avgCycle===null?'—':`${avgCycle.toFixed(1).replace('.',',')} dias`,'clock',`${cycleSamples.length} venda(s) com datas válidas · mediana ${medianCycle===null?'—':medianCycle.toFixed(1).replace('.',',')+' d'}`)}</div><div class="analytics-grid"><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Conversão e distribuição por etapa</div><div class="card-sub">Volume atual, valor em cada etapa e taxa de ganho entre oportunidades com histórico disponível.</div></div></div>${stageMarkup}<div class="analytics-note">* Conversão final por etapa é calculada a partir de transições stage_change registradas e da etapa atual. Movimentações anteriores ao registro de histórico podem não aparecer; portanto, use as taxas como referência, não como uma série histórica completa.</div></section><section class="card analytics-panel"><div class="card-head"><div><div class="card-title">Motivos de perda</div><div class="card-sub">Por que as oportunidades foram encerradas sem venda.</div></div></div><div class="analytics-panel-body">${lossMarkup}</div></section><section class="card analytics-panel"><div class="card-head"><div><div class="card-title">Vendas ganhas por mês</div><div class="card-sub">Últimos seis meses, independentemente do filtro geral do relatório.</div></div></div><div class="analytics-panel-body">${monthlyMarkup}<div class="analytics-legend"><span><i></i> Valor de negócios ganhos</span><span>Inclui somente oportunidades com closed_at registrado.</span></div></div></section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Desempenho por responsável</div><div class="card-sub">Conversão sobre negócios encerrados, valor ganho e pipeline aberto no período.</div></div></div>${peopleMarkup}</section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Origem dos leads</div><div class="card-sub">Compara volume de contatos, negócios associados e conversão por canal registrado.</div></div></div>${sourcesMarkup}</section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Previsão comercial</div><div class="card-sub">Negócios abertos distribuídos pela data prevista de fechamento.</div></div></div><div class="analytics-panel-body">${forecastMarkup}</div></section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Pontos de atenção</div><div class="card-sub">Sinais que merecem ação da equipe, sem alterações automáticas nos registros.</div></div></div><div class="analytics-panel-body"><div class="analytics-row"><span class="analytics-row-name">Oportunidades sem próxima ação</span><div class="analytics-track"><i style="width:${open.length?Math.min(100,noNextAction.length/open.length*100):0}%"></i></div><b class="analytics-row-value">${noNextAction.length}</b></div><div class="analytics-row"><span class="analytics-row-name">Retornos vencidos</span><div class="analytics-track"><i style="width:${activeTasks.length?Math.min(100,activeTasks.filter(t=>{const d=analyticsDate(t.due_at||t.date);return d&&d<new Date()}).length/activeTasks.length*100):0}%"></i></div><b class="analytics-row-value">${activeTasks.filter(t=>{const d=analyticsDate(t.due_at||t.date);return d&&d<new Date()}).length}</b></div><div class="analytics-row"><span class="analytics-row-name">Negócios sem motivo de perda</span><div class="analytics-track"><i style="width:${lost.length?Math.min(100,lost.filter(d=>!String(d.lost_reason||'').trim()).length/lost.length*100):0}%"></i></div><b class="analytics-row-value">${lost.filter(d=>!String(d.lost_reason||'').trim()).length}</b></div><p class="card-sub" style="line-height:1.6;margin:12px 0 0">${noNextAction.length?'Considere agendar uma próxima ação para as oportunidades abertas sem tarefa vinculada.':'Todas as oportunidades abertas têm pelo menos uma tarefa ativa vinculada no conjunto de dados carregado.'}${pageNote}</p></div></section></div>`;
+    return `${pageHeader('INTELIGÊNCIA COMERCIAL','Gestão e análise','Veja resultados, gargalos e próximas previsões com base nos dados registrados.',button('Exportar oportunidades',"exportCSV('deals')",false,'download'))}${filterMarkup}<div class="analytics-kpis">${liveStat('Oportunidades abertas',open.length,'target','No período selecionado')}${liveStat('Pipeline ponderado',money(weightedForecast),'chart','Todas as oportunidades abertas')}${liveStat('Taxa de ganho',winRate===null?'—':winRate+'%','check',`${won.length} ganhos de ${closed.length} encerrados`)}${liveStat('Ciclo médio',avgCycle===null?'—':`${avgCycle.toFixed(1).replace('.',',')} dias`,'clock',`${cycleSamples.length} venda(s) com datas válidas · mediana ${medianCycle===null?'—':medianCycle.toFixed(1).replace('.',',')+' d'}`)}</div><div class="analytics-grid"><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Conversão e distribuição por etapa</div><div class="card-sub">Volume atual, valor em cada etapa e taxa de ganho entre oportunidades com histórico disponível.</div></div></div>${stageMarkup}<div class="analytics-note">* Conversão final por etapa é calculada a partir de transições stage_change registradas e da etapa atual. Movimentações anteriores ao registro de histórico podem não aparecer; portanto, use as taxas como referência, não como uma série histórica completa.</div></section><section class="card analytics-panel"><div class="card-head"><div><div class="card-title">Motivos de perda</div><div class="card-sub">Por que as oportunidades foram encerradas sem venda.</div></div></div><div class="analytics-panel-body">${lossMarkup}</div></section><section class="card analytics-panel"><div class="card-head"><div><div class="card-title">Vendas ganhas por mês</div><div class="card-sub">Últimos seis meses, independentemente do filtro geral do relatório.</div></div></div><div class="analytics-panel-body">${monthlyMarkup}<div class="analytics-legend"><span><i></i> Valor de negócios ganhos</span><span>Inclui somente oportunidades com closed_at registrado.</span></div></div></section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Desempenho por responsável</div><div class="card-sub">Conversão sobre negócios encerrados, valor ganho e pipeline aberto no período.</div></div></div>${peopleMarkup}</section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Origem dos leads</div><div class="card-sub">Compara volume de contatos, negócios associados e conversão por canal registrado.</div></div></div>${sourcesMarkup}</section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Previsão comercial</div><div class="card-sub">Negócios abertos distribuídos pela data prevista de fechamento.</div></div></div><div class="analytics-panel-body">${forecastMarkup}</div></section><section class="card analytics-panel span-2"><div class="card-head"><div><div class="card-title">Qualidade das oportunidades</div><div class="card-sub">Informações comerciais importantes que ainda podem ser completadas.</div></div></div><div class="analytics-panel-body"><div class="analytics-row"><span class="analytics-row-name">Oportunidades abertas sem data prevista</span><div class="analytics-track"><i style="width:${open.length?Math.min(100,missingCloseDate.length/open.length*100):0}%"></i></div><b class="analytics-row-value">${missingCloseDate.length}</b></div><div class="analytics-row"><span class="analytics-row-name">Vendas perdidas sem motivo registrado</span><div class="analytics-track"><i style="width:${lost.length?Math.min(100,lostWithoutReason.length/lost.length*100):0}%"></i></div><b class="analytics-row-value">${lostWithoutReason.length}</b></div><p class="card-sub" style="line-height:1.6;margin:12px 0 0">Complete as informações das oportunidades para melhorar a leitura dos resultados.</p></div></section></div>`;
   };
 
   function selectMarkup(name, options, selected='', placeholder='Selecione') {
@@ -1869,7 +1859,7 @@
 
   // WhatsApp: área preparatória. A conexão real exige Meta Cloud API + funções server-side/webhook.
   window.whatsappPage = function() {
-    return `${pageHeader('CANAIS DE ATENDIMENTO','WhatsApp','Prepare a conexão do WhatsApp Business ao NEXO CRM, sem vincular uma conta agora.',button('Abrir documentação da Meta',"window.open('https://developers.facebook.com/docs/whatsapp/cloud-api/overview/','_blank','noopener,noreferrer')",false,'external-link'))}
+    return `${pageHeader('CANAIS DE ATENDIMENTO','WhatsApp','Prepare a conexão do WhatsApp Business ao Cirandaê CRM, sem vincular uma conta agora.',button('Abrir documentação da Meta',"window.open('https://developers.facebook.com/docs/whatsapp/cloud-api/overview/','_blank','noopener,noreferrer')",false,'external-link'))}
       <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:18px">
         <article class="card stat-card"><div class="stat-top"><span>Status da conexão</span><span class="stat-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.7-1.2A9 9 0 1 0 12 3Z"/><path d="M8.5 8.5c.4-.5.8-.4 1 .1l.8 1.3c.2.3.1.5-.2.8l-.4.4c.5 1.1 1.4 2 2.5 2.5l.4-.5c.2-.2.5-.3.8-.1l1.3.7c.4.2.4.6.2 1-.4.6-1 .8-1.7.8-2.4-.2-5.4-3.2-5.6-5.6 0-.6.4-1.1.9-1.4Z"/></svg></span></div><div class="stat-value" style="font-size:22px;color:var(--muted)"><span class="status muted">Ainda não conectado</span></div><div class="stat-bottom"><span class="stat-note">Nenhuma conta da Meta foi vinculada.</span></div></article>
         <article class="card stat-card"><div class="stat-top"><span>Mensagens</span><span class="stat-icon">${ico('message-circle',17)}</span></div><div class="stat-value">—</div><div class="stat-bottom"><span class="stat-note">Disponível após ativar a integração.</span></div></article>
@@ -1922,7 +1912,7 @@
   };
 
   window.navLabel = function(page) {
-    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',followup:'Acompanhamento',reports:'Gestão e análise',settings:'Configurações'})[page] || 'Visão geral';
+    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',reports:'Gestão e análise',settings:'Configurações'})[page] || 'Visão geral';
   };
 
   // Renderização explícita: evita conflitos com os handlers antigos do protótipo inline.
@@ -1934,7 +1924,6 @@
       contacts: window.contactsPage,
       whatsapp: window.whatsappPage,
       pipeline: window.pipelinePage,
-      followup: window.followupPage,
       reports: window.reportsPage,
       settings: window.settingsPage
     };
@@ -1960,7 +1949,7 @@
   // A navegação usada pelos botões é registrada aqui, depois das telas reais do Supabase.
   // Isso impede que a função antiga da prévia HTML sobrescreva o fluxo de navegação.
   window.navigate = function(page) {
-    const allowed = ['dashboard','contacts','whatsapp','pipeline','followup','reports','settings'];
+    const allowed = ['dashboard','contacts','whatsapp','pipeline','reports','settings'];
     if (!allowed.includes(page)) {
       console.warn('[NEXO CRM] Rota desconhecida:', page);
       return;
@@ -1969,8 +1958,8 @@
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     const breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) {
-      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',followup:'Acompanhamento',reports:'Gestão e análise',settings:'Configurações'};
-      breadcrumb.innerHTML = `Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
+      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',reports:'Gestão e análise',settings:'Configurações'};
+      breadcrumb.innerHTML = `Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
     }
     const sidebar = document.getElementById('sidebar');
     if (sidebar && window.matchMedia('(min-width: 761px)').matches) sidebar.classList.add('sidebar-suppress-hover');
