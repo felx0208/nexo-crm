@@ -72,12 +72,13 @@ Deno.serve(async (req: Request) => {
     }
 
     const name = String(body.name || "").trim();
-    const email = String(body.email || "").trim().toLowerCase();
+    const username = String(body.username || "").trim().toLowerCase();
     const password = typeof body.password === "string" ? body.password : "";
+    const email = username + "@login.nexo.invalid";
 
     if (!name || name.length > 120) return json({ error: "Informe um nome com até 120 caracteres." }, 400);
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 190) {
-      return json({ error: "Informe um e-mail válido." }, 400);
+    if (!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(username)) {
+      return json({ error: "Usuário inválido. Use de 3 a 32 caracteres, letras, números, ponto, hífen ou _." }, 400);
     }
     if (password.length < 12) return json({ error: "A senha precisa ter pelo menos 12 caracteres." }, 400);
     if (password.length > 72) return json({ error: "A senha deve ter no máximo 72 caracteres." }, 400);
@@ -100,7 +101,7 @@ Deno.serve(async (req: Request) => {
     });
     const created = await createResponse.json().catch(() => ({}));
     if (!createResponse.ok) {
-      return json({ error: messageFrom(created, "Não foi possível criar esse acesso. Confira se o e-mail já está cadastrado.") }, 400);
+      return json({ error: messageFrom(created, "Não foi possível criar esse acesso. Confira se o nome de usuário já está cadastrado.") }, 400);
     }
 
     const newAuthId = created?.id;
