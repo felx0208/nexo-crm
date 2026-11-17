@@ -132,6 +132,17 @@
     return email ? email.toLowerCase() : null;
   }
 
+  function accountEmail(login) {
+    const raw=String(login||'').trim().toLowerCase();
+    if(raw.includes('@')) return raw; // Compatibilidade com o administrador existente.
+    if(!/^[a-z0-9][a-z0-9._-]{2,31}$/.test(raw)) throw new Error('Use um nome de usuário de 3 a 32 caracteres: letras sem acento, números, ponto, hífen ou _.');
+    return raw+'@login.nexo.invalid';
+  }
+  function accountLabel(email) {
+    const value=String(email||'');
+    return value.endsWith('@login.nexo.invalid')?value.slice(0,-'@login.nexo.invalid'.length):value;
+  }
+
   function checkedId(value, label, optional = false) {
     if ((value === null || value === undefined || value === '') && optional) return null;
     const id = Number(value);
@@ -179,7 +190,7 @@
 
     if (action === 'login' && method === 'POST') {
       const result = await client.auth.signInWithPassword({
-        email: String(d.email || '').trim().toLowerCase(),
+        email: accountEmail(d.login || d.email),
         password: String(d.password || '')
       });
       const session = throwIfError(result);
@@ -508,16 +519,16 @@
     if (action === 'users') {
       if (method === 'GET') {
         const rows = throwIfError(await client.from('users').select('id,name,email,role,is_active,created_at').order('name'));
-        return {data:(rows||[]).map(u=>({...u,id:Number(u.id),is_active:Number(u.is_active)}))};
+        return {data:(rows||[]).map(u=>({...u,username:accountLabel(u.email),id:Number(u.id),is_active:Number(u.is_active)}))};
       }
       if (method === 'POST') {
         if(currentUser?.role!=='admin') throw new Error('Somente o administrador pode cadastrar usuários.');
         const name=checkedText(d.name,'Nome do usuário',120,true);
-        const email=checkedEmail(d.email);
+        const username=String(d.username||'').trim().toLowerCase();
+        accountEmail(username);
         const password=typeof d.password==='string'?d.password:'';
-        if(!email) throw new Error('Informe o e-mail do novo usuário.');
         if(password.length<12) throw new Error('A senha precisa ter pelo menos 12 caracteres.');
-        const {data,error}=await client.functions.invoke('create-crm-user',{body:{name,email,password}});
+        const {data,error}=await client.functions.invoke('create-crm-user',{body:{name,username,password}});
         if(error) {
           let detail=error.message||'Não foi possível criar o acesso.';
           try { const body=await error.context?.json?.(); detail=body?.error||body?.message||detail; } catch(_) {}
@@ -787,7 +798,7 @@
       content.innerHTML=`<h1>Não foi possível conectar</h1><p class="auth-copy">A interface carregou, mas não conseguiu acessar o Supabase. Confira a URL, a chave publishable e se o SQL de configuração foi executado.</p><button class="auth-submit" type="button" onclick="window.nexoInitialize()">Tentar novamente</button><div class="auth-foot">Não use a chave secret/service_role no navegador. As permissões devem ser protegidas pelas políticas RLS.</div>`;
     } else {
       content.innerHTML=`<h1>Entre no seu CRM</h1><p class="auth-copy">Acesse os contatos e oportunidades comerciais armazenados no Cirandaê CRM.</p>
-        <form onsubmit="window.nexoAuthSubmit(event)"><div class="auth-field"><label>E-mail</label><input name="email" type="email" autocomplete="username" required placeholder="voce@empresa.com.br"></div><div class="auth-field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></div><button class="auth-submit" type="submit">Entrar no Cirandaê CRM</button></form><div class="auth-foot">Acesso restrito. Entre com o e-mail e a senha autorizados para esta instalação.</div>`;
+        <form onsubmit="window.nexoAuthSubmit(event)"><div class="auth-field"><label>Usuário ou e-mail de administrador</label><input name="login" type="text" autocomplete="username" required placeholder="Seu usuário"></div><div class="auth-field"><label>Senha</label><input name="password" type="password" autocomplete="current-password" required placeholder="Sua senha"></div><button class="auth-submit" type="submit">Entrar no Cirandaê CRM</button></form><div class="auth-foot">Acesso restrito. Entre com seu usuário e senha. Contas antigas podem usar e-mail.</div>`;
     }
     const err=document.getElementById('authError');
     err.textContent=message || ''; err.hidden=!message;
@@ -831,7 +842,7 @@
         currentUser=logged.user; csrfToken=logged.csrf || '';
         await api('settings','POST',{name:'Cirandaê',currency:'BRL',timezone:'America/Sao_Paulo',theme_mode:'dark',accent_color:'#052D60'});
       } else {
-        const logged=await api('login','POST',{email:data.email,password:data.password});
+        const logged=await api('login','POST',{login:data.login,password:data.password});
         currentUser=logged.user; csrfToken=logged.csrf || '';
       }
       await loadRemoteState(); hideAuthGate(); render(); showToast(`Bem-vindo, ${currentUser.name}.`);
@@ -1871,23 +1882,23 @@
 
     if(activeSettings==='usuarios') {
       const staff=(state.users||[]).filter(u=>u.role!=='admin').slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
-      const rows=staff.map(u=>'<tr><td>'+esc(u.name)+'</td><td>'+esc(u.email||'')+'</td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td><button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button></td></tr>').join('');
+      const rows=staff.map(u=>'<tr><td>'+esc(u.name)+'</td><td>'+esc(u.username||u.email||'')+'</td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td><button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button></td></tr>').join('');
       contents='<h3 class="settings-section-title">Usuários e responsáveis</h3>'+
         '<p class="settings-section-desc">Cadastre as pessoas da equipe que poderão ser atribuídas aos leads. O acesso de administrador é separado e não aparece como responsável.</p>'+
         '<form class="custom-field-create" onsubmit="createCrmUser(event)">'+
           '<div class="form-grid">'+
             '<div class="form-field"><label>Nome da pessoa *</label><input name="name" maxlength="120" required placeholder="Nome de quem vai atender os leads"></div>'+
-            '<div class="form-field"><label>E-mail de acesso *</label><input name="email" type="email" maxlength="190" required placeholder="pessoa@email.com"></div>'+
+            '<div class="form-field"><label>Nome de usuário *</label><input name="username" type="text" pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,31}" maxlength="32" required placeholder="Ex.: betina ou vendedor01"></div>'+
             '<div class="form-field"><label>Senha inicial *</label><input name="password" type="password" minlength="12" required placeholder="Mínimo de 12 caracteres"></div>'+
           '</div>'+
           '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Criar usuário</button></div>'+
         '</form>'+
         '<div style="margin-top:22px"><h4 style="font-size:12px;margin:0 0 10px">Equipe cadastrada</h4>'+
-          '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>E-mail</th><th>Status</th><th>Acesso</th></tr></thead><tbody>'+
+          '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>Usuário</th><th>Status</th><th>Acesso</th></tr></thead><tbody>'+
           (rows||'<tr><td colspan="4">Nenhuma pessoa cadastrada. Crie o primeiro usuário acima.</td></tr>')+
           '</tbody></table></div>'+
         '</div>'+
-        '<p class="form-help" style="margin-top:12px">Os novos usuários recebem acesso de equipe, não de administrador. O e-mail e a senha cadastrados serão usados para entrar no CRM.</p>';
+        '<p class="form-help" style="margin-top:12px">Os novos usuários recebem acesso de equipe, não de administrador. O nome de usuário e a senha serão usados para entrar no CRM. Não é necessário informar e-mail.</p>';
     } else if(activeSettings==='aparencia') {
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
       contents=`<h3 class="settings-section-title">Aparência do Cirandaê</h3>
@@ -1949,11 +1960,11 @@
     const submit=form.querySelector('button[type="submit"]');
     if(submit){submit.disabled=true;submit.textContent='Criando acesso...';}
     try {
-      await api('users','POST',{name:data.name,email:data.email,password:data.password});
+      await api('users','POST',{name:data.name,username:data.username,password:data.password});
       form.reset();
       await loadRemoteState();
       render();
-      showToast('Usuário criado. Ele já pode entrar com o e-mail e a senha cadastrados.');
+      showToast('Usuário criado. Ele já pode entrar com o nome de usuário e a senha cadastrados.');
     } catch(e) {
       showToast(e.message||'Não foi possível criar o usuário.');
       if(submit){submit.disabled=false;submit.innerHTML=ico('plus',14)+' Criar usuário';}
