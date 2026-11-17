@@ -1179,13 +1179,22 @@
     showToast(`Card de teste movido para “${stage.name}”. Nenhum dado foi gravado.`);
   }
 
+  function stageDisplaysValue(stage) {
+    if(!stage || stage.is_lost) return false;
+    const label=String(stage.name||'').trim().toLocaleLowerCase('pt-BR');
+    return label==='negociação' || label==='fechado';
+  }
+  function dealDisplaysValue(deal) {
+    return stageDisplaysValue((state.pipelineStages||[]).find(s=>Number(s.id)===Number(deal.stage_id)));
+  }
+
   window.dealCard = function(d) {
     const meta=dealRiskMeta(d);
     const toneLabel={good:'Verde · contato recente',warning:'Amarelo · acompanhar',critical:'Vermelho · contato atrasado',unknown:'Cinza · sem interação registrada'}[meta.recency.tone];
     const stageAge=meta.age;
     const showStageAge=dealIsOpen(d)&&stageAge.days!==null&&stageAge.days>=3;
     const firstRisk=meta.flags.find(f=>f.label==='Retorno vencido')||meta.flags.find(f=>f.tone==='critical')||meta.flags.find(f=>f.tone==='warning');
-    return `<article class="deal-card ${meta.score>=75?'deal-card-risk':''}" data-deal-id="${d.id}" data-stage-id="${d.stage_id}" draggable="true" ondragstart="handleDealDragStart(event,${d.id})" ondragend="handleDealDragEnd(event)" onclick="if(Date.now()<(window.__nexoSuppressClickUntil||0)){event.preventDefault();return false;}openModal('deal',${d.id})"><span class="deal-recency-dot recency-${meta.recency.tone}" title="${esc(`${toneLabel}. ${meta.recency.title}`)}" aria-label="${esc(toneLabel)}"></span><strong>${esc(d.title)}</strong><div class="deal-company">${esc(d.company||d.contact||'Contato')}${d.contact?' · '+esc(d.contact):''}</div><div class="deal-contact-recency">${esc(meta.recency.label)}</div>${showStageAge?`<div class="deal-stage-age ${stageAge.critical?'critical':stageAge.stale?'warning':''}" title="${stageAge.estimated?'Tempo aproximado com base na última atualização anterior à instalação do contador.':'Tempo desde que o negócio entrou nesta etapa.'}">${esc(stageAge.label)}${stageAge.estimated?' · estimado':''}</div>`:''}${meta.overdue?'<div class="deal-followup-alert" title="Existe uma tarefa aberta vinculada a este lead com prazo vencido">⌛ Retorno vencido</div>':firstRisk&&firstRisk.label!=='Retorno vencido'&&meta.score>=25?`<div class="deal-risk-tag ${firstRisk.tone}">${esc(firstRisk.label)}</div>`:''}<div class="deal-price">${money(d.value)}</div><div class="deal-foot"><span class="deal-owner"><span class="tiny-avatar">${initials(d.owner||'')}</span>${esc(d.owner||'—')}</span><span>${datePt(d.close)}</span></div></article>`;
+    return `<article class="deal-card ${meta.score>=75?'deal-card-risk':''}" data-deal-id="${d.id}" data-stage-id="${d.stage_id}" draggable="true" ondragstart="handleDealDragStart(event,${d.id})" ondragend="handleDealDragEnd(event)" onclick="if(Date.now()<(window.__nexoSuppressClickUntil||0)){event.preventDefault();return false;}openModal('deal',${d.id})"><span class="deal-recency-dot recency-${meta.recency.tone}" title="${esc(`${toneLabel}. ${meta.recency.title}`)}" aria-label="${esc(toneLabel)}"></span><strong>${esc(d.title)}</strong><div class="deal-company">${esc(d.company||d.contact||'Contato')}${d.contact?' · '+esc(d.contact):''}</div><div class="deal-contact-recency">${esc(meta.recency.label)}</div>${showStageAge?`<div class="deal-stage-age ${stageAge.critical?'critical':stageAge.stale?'warning':''}" title="${stageAge.estimated?'Tempo aproximado com base na última atualização anterior à instalação do contador.':'Tempo desde que o negócio entrou nesta etapa.'}">${esc(stageAge.label)}${stageAge.estimated?' · estimado':''}</div>`:''}${meta.overdue?'<div class="deal-followup-alert" title="Existe uma tarefa aberta vinculada a este lead com prazo vencido">⌛ Retorno vencido</div>':firstRisk&&firstRisk.label!=='Retorno vencido'&&meta.score>=25?`<div class="deal-risk-tag ${firstRisk.tone}">${esc(firstRisk.label)}</div>`:''}${dealDisplaysValue(d)?`<div class="deal-price">${money(d.value)}</div>`:''}<div class="deal-foot"><span class="deal-owner"><span class="tiny-avatar">${initials(d.owner||'')}</span>${esc(d.owner||'—')}</span><span>${datePt(d.close)}</span></div></article>`;
   };
 
   window.allowDealDrop = function(event) {
@@ -1213,7 +1222,7 @@
       const stageId=Number(column.dataset.stageColumn);
       const deals=(state.deals||[]).filter(d=>Number(d.stage_id)===stageId);
       const summary=column.querySelector('.stage-summary');
-      if(summary) summary.textContent=`${deals.length} · ${money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0))}`;
+      if(summary){const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===stageId);summary.textContent=stageDisplaysValue(stage)?`${deals.length} · ${money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0))}`:`${deals.length} lead(s)`;}
     });
   }
   async function moveDealToStage(dealId,targetStageId) {
@@ -1334,7 +1343,7 @@
     if(!String(query||'').trim())return '';
     const matches=getPipelineSearchMatches(query);
     if(!matches.length)return `<section id="pipelineSearchPreview" class="pipeline-search-matches is-empty"><div class="pipeline-search-heading"><strong>Nenhuma correspondência próxima</strong><span>O funil completo continua visível abaixo.</span></div></section>`;
-    return `<section id="pipelineSearchPreview" class="pipeline-search-matches"><div class="pipeline-search-heading"><strong>Resultados parecidos com “${esc(query)}”</strong><span>${matches.length} sugestão(ões) · os outros cards continuam visíveis</span></div><div class="pipeline-search-match-list">${matches.map(d=>`<button type="button" class="pipeline-search-match" onclick="openModal('deal',${Number(d.id)})"><span class="search-match-icon">${ico('target',14)}</span><span class="search-match-copy"><strong>${esc(d.title||'Oportunidade sem título')}</strong><small>${esc(d.contact||d.company||'Contato não informado')} · ${esc(d.stage||'Etapa não informada')}</small></span><span class="search-match-owner">${esc(d.owner||'Sem responsável')}</span><span class="search-match-value">${money(d.value)}</span></button>`).join('')}</div></section>`;
+    return `<section id="pipelineSearchPreview" class="pipeline-search-matches"><div class="pipeline-search-heading"><strong>Resultados parecidos com “${esc(query)}”</strong><span>${matches.length} sugestão(ões) · os outros cards continuam visíveis</span></div><div class="pipeline-search-match-list">${matches.map(d=>`<button type="button" class="pipeline-search-match" onclick="openModal('deal',${Number(d.id)})"><span class="search-match-icon">${ico('target',14)}</span><span class="search-match-copy"><strong>${esc(d.title||'Oportunidade sem título')}</strong><small>${esc(d.contact||d.company||'Contato não informado')} · ${esc(d.stage||'Etapa não informada')}</small></span><span class="search-match-owner">${esc(d.owner||'Sem responsável')}</span>${dealDisplaysValue(d)?`<span class="search-match-value">${money(d.value)}</span>`:''}</button>`).join('')}</div></section>`;
   }
   function stageAgeText(deal) {
     const age=dealStageAgeMeta(deal);
@@ -1348,13 +1357,13 @@
     const unknownContact=open.filter(d=>dealLastContactMeta(d).tone==='unknown');
     const overdue=open.filter(dealHasOverdueTask);
     const noNext=open.filter(d=>!dealHasNextStep(d));
-    const totalOpenValue=open.reduce((sum,d)=>sum+(Number(d.value)||0),0);
+    const totalOpenValue=open.filter(dealDisplaysValue).reduce((sum,d)=>sum+(Number(d.value)||0),0);
     const stageStats=stages.map(stage=>({stage,items:deals.filter(d=>Number(d.stage_id)===Number(stage.id)),value:deals.filter(d=>Number(d.stage_id)===Number(stage.id)).reduce((sum,d)=>sum+(Number(d.value)||0),0)}));
     const maxCount=Math.max(1,...stageStats.map(x=>x.items.length));
     const ranked=open.map(deal=>({deal,risk:dealRiskMeta(deal)})).sort((a,b)=>b.risk.score-a.risk.score || Number(b.deal.value||0)-Number(a.deal.value||0)).slice(0,8);
     return `<section class="pipeline-analysis">
-      <div class="pipeline-analysis-summary"><div class="pipeline-metric"><span>Em andamento</span><strong>${open.length}</strong><small>${money(totalOpenValue)} em valor nominal</small></div><div class="pipeline-metric ${staleStage.length?'attention':''}"><span>Paradas na etapa · 7+ dias</span><strong>${staleStage.length}</strong><small>Oportunidades sem mudança de etapa</small></div><div class="pipeline-metric ${overdue.length?'critical':''}"><span>Retornos vencidos</span><strong>${overdue.length}</strong><small>Há tarefa aberta fora do prazo</small></div><div class="pipeline-metric ${criticalContact.length?'critical':''}"><span>Contato atrasado · 16+ dias</span><strong>${criticalContact.length}</strong><small>${unknownContact.length} sem histórico de interação registrado</small></div><div class="pipeline-metric ${noNext.length?'attention':''}"><span>Sem próxima ação</span><strong>${noNext.length}</strong><small>Negócios abertos sem retorno futuro agendado</small></div></div>
-      <div class="pipeline-analysis-grid"><section class="card pipeline-analysis-panel"><div class="card-head"><div><div class="card-title">Distribuição por etapa</div><div class="card-sub">Volume e valor nominal de cada coluna</div></div></div><div class="pipeline-stage-analysis">${stageStats.map(x=>`<div class="pipeline-stage-row"><div class="pipeline-stage-label"><strong>${esc(x.stage.name)}</strong><span>${x.items.length} · ${money(x.value)}</span></div><div class="pipeline-analysis-track"><i style="width:${Math.round(x.items.length/maxCount*100)}%"></i></div></div>`).join('')||'<div class="empty">Nenhuma etapa configurada.</div>'}</div></section>
+      <div class="pipeline-analysis-summary"><div class="pipeline-metric"><span>Em andamento</span><strong>${open.length}</strong><small>${money(totalOpenValue)} nas etapas com valor visível</small></div><div class="pipeline-metric ${staleStage.length?'attention':''}"><span>Paradas na etapa · 7+ dias</span><strong>${staleStage.length}</strong><small>Oportunidades sem mudança de etapa</small></div><div class="pipeline-metric ${overdue.length?'critical':''}"><span>Retornos vencidos</span><strong>${overdue.length}</strong><small>Há tarefa aberta fora do prazo</small></div><div class="pipeline-metric ${criticalContact.length?'critical':''}"><span>Contato atrasado · 16+ dias</span><strong>${criticalContact.length}</strong><small>${unknownContact.length} sem histórico de interação registrado</small></div><div class="pipeline-metric ${noNext.length?'attention':''}"><span>Sem próxima ação</span><strong>${noNext.length}</strong><small>Negócios abertos sem retorno futuro agendado</small></div></div>
+      <div class="pipeline-analysis-grid"><section class="card pipeline-analysis-panel"><div class="card-head"><div><div class="card-title">Distribuição por etapa</div><div class="card-sub">Quantidade por coluna; valores apenas em Negociação e Fechado</div></div></div><div class="pipeline-stage-analysis">${stageStats.map(x=>`<div class="pipeline-stage-row"><div class="pipeline-stage-label"><strong>${esc(x.stage.name)}</strong><span>${x.items.length}${stageDisplaysValue(x.stage)?' · '+money(x.value):''}</span></div><div class="pipeline-analysis-track"><i style="width:${Math.round(x.items.length/maxCount*100)}%"></i></div></div>`).join('')||'<div class="empty">Nenhuma etapa configurada.</div>'}</div></section>
       <section class="card pipeline-analysis-panel"><div class="card-head"><div><div class="card-title">Ações recomendadas</div><div class="card-sub">Ordenadas por risco de estagnação e retorno atrasado</div></div></div><div class="pipeline-priority-list">${ranked.map(({deal,risk})=>`<button type="button" class="pipeline-priority-item" onclick="openModal('deal',${Number(deal.id)})"><span class="priority-mark ${risk.score>=75?'critical':risk.score>=30?'warning':'good'}"></span><span class="priority-copy"><strong>${esc(deal.title)}</strong><small>${esc(deal.contact||deal.company||'Sem contato associado')} · ${esc(deal.stage||'')}</small><span>${risk.flags.slice(0,2).map(f=>`<i class="priority-flag ${f.tone}">${esc(f.label)}</i>`).join('')||'<i class="priority-flag good">Acompanhamento em dia</i>'}</span></span><span class="priority-value">${money(deal.value)}</span></button>`).join('')||'<div class="empty">Nenhuma oportunidade aberta. Crie um negócio para ver as próximas ações.</div>'}</div></section></div>
       <p class="pipeline-analysis-note">Os alertas usam a data da última interação registrada, tarefas abertas e o tempo nesta etapa. Nas oportunidades antigas, o tempo na etapa pode aparecer como estimativa até o primeiro movimento registrado após a atualização.</p>
     </section>`;
@@ -1373,7 +1382,7 @@
       const ds=deals.filter(d=>Number(d.stage_id)===Number(s.id));
       const total=ds.reduce((a,d)=>a+(Number(d.value)||0),0);
       const testCards=blankTestCards.filter(c=>Number(c.stage_id)===Number(s.id)).map(c=>window.blankTestDealCard(c)).join('');
-      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${ds.length} · ${money(total)}</span></div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
+      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${stageDisplaysValue(s)?ds.length+' · '+money(total):ds.length+' lead(s)'}</span>${canManage?`<div class="stage-head-actions" style="display:flex;gap:3px;margin-left:5px"><button type="button" class="btn small ghost" style="padding:5px" title="Editar nome da coluna" aria-label="Editar nome de ${esc(s.name)}" onclick="editPipelineStageName(${Number(s.id)})">${ico('pencil',12)}</button><button type="button" class="btn small ghost" style="padding:5px" title="Excluir coluna" aria-label="Excluir ${esc(s.name)}" onclick="deletePipelineStage(${Number(s.id)})">${ico('trash-2',12)}</button></div>`:''}</div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
     }).join('');
     const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
@@ -1841,14 +1850,33 @@
     const stage_type=document.getElementById(`stageType-${id}`)?.value||'open';
     const probability=stage_type==='won'?100:stage_type==='lost'?0:Number(document.getElementById(`stageProbability-${id}`)?.value||0);
     if(!name){showToast('O nome da coluna não pode ficar vazio.');return;}
+    if(!stage){showToast('Coluna não encontrada.');return;}
+    const oldType=stage.is_won?'won':stage.is_lost?'lost':'open';
+    if(name===stage.name && probability===Number(stage.probability||0) && stage_type===oldType){showToast('Nenhuma alteração para salvar.');return;}
+    if(!confirm(`Confirmar alteração da coluna “${stage.name}” para “${name}”? Isso será aplicado para toda a equipe.`))return;
     try { await api('pipeline-stages','PATCH',{id:Number(id),name,probability,stage_type}); await loadRemoteState();render();showToast('Coluna atualizada.'); }
     catch(e){showToast(e.message||'Não foi possível atualizar a coluna. Confira a migração do Supabase.');}
+  };
+  window.editPipelineStageName = async function(id) {
+    if(currentUser?.role!=='admin'){showToast('Somente o administrador pode editar colunas.');return;}
+    const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(id));
+    if(!stage)return;
+    const proposed=prompt('Novo nome para a coluna:',stage.name);
+    if(proposed===null)return;
+    const name=proposed.trim();
+    if(!name || name.length>80){showToast('Informe um nome de até 80 caracteres.');return;}
+    if(name===stage.name)return;
+    if(!confirm(`Confirmar mudança do nome “${stage.name}” para “${name}”?`))return;
+    try {
+      await api('pipeline-stages','PATCH',{id:Number(id),name});
+      await loadRemoteState();render();showToast('Nome da coluna atualizado.');
+    }catch(e){showToast(e.message||'Não foi possível renomear a coluna.');}
   };
   window.deletePipelineStage = async function(id) {
     const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(id));
     if(!stage)return;
     if(currentUser?.role!=='admin'){showToast('Somente o administrador pode excluir colunas.');return;}
-    if(!confirm(`Excluir a coluna “${stage.name}”? Ela precisa estar vazia.`))return;
+    if(!confirm(`Tem certeza que deseja EXCLUIR a coluna “${stage.name}”? Esta ação não poderá ser desfeita e somente colunas vazias podem ser excluídas.`))return;
     try { await api('pipeline-stages','DELETE',null,{id:Number(id)}); await loadRemoteState();render();showToast('Coluna excluída.'); }
     catch(e){showToast(e.message||'Não foi possível excluir a coluna.');}
   };
