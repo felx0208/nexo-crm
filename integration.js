@@ -282,7 +282,9 @@
         const stageId = Number(d.stage_id);
         const stage = throwIfError(await client.from('pipeline_stages').select('id,pipeline_id,is_won,is_lost,name').eq('id',stageId).maybeSingle());
         if (!stage || Number(stage.pipeline_id)!==pipelineId) throw new Error('A etapa selecionada não pertence ao funil informado.');
-        const moved = throwIfError(await client.from('deals').update({stage_id:stageId,closed_at:(stage.is_won||stage.is_lost)?now:null}).eq('id',dealId).is('deleted_at',null).select('id').maybeSingle());
+        const stagePayload={stage_id:stageId,closed_at:(stage.is_won||stage.is_lost)?now:null};
+        if(d.value!==undefined){const value=Number(d.value);if(!Number.isFinite(value)||value<=0||value>9999999999.99)throw new Error('Valor de negociação inválido.');stagePayload.value=Math.round(value*100)/100;}
+        const moved = throwIfError(await client.from('deals').update(stagePayload).eq('id',dealId).is('deleted_at',null).select('id').maybeSingle());
         if (!moved) throw new Error('Não foi possível mover a oportunidade.');
         return {ok:true,stage_name:stage.name,is_won:stage.is_won,is_lost:stage.is_lost};
       }
@@ -1179,6 +1181,24 @@
     showToast(`Card de teste movido para “${stage.name}”. Nenhum dado foi gravado.`);
   }
 
+  function isNegotiationStage(stage) {
+    return !!stage && !stage.is_won && !stage.is_lost && String(stage.name||'').trim().toLocaleLowerCase('pt-BR')==='negociação';
+  }
+  function parseDealAmount(input) {
+    const raw=String(input??'').trim().replace(/\s/g,'');
+    if(!raw)return null;
+    const normalized=raw.includes(',')?raw.replace(/\./g,'').replace(',','.'):raw;
+    if(!/^\d+(?:\.\d{1,2})?$/.test(normalized))return null;
+    const value=Number(normalized);
+    return Number.isFinite(value)&&value>0&&value<=9999999999.99?Math.round(value*100)/100:null;
+  }
+  function askNegotiationAmount(oldValue) {
+    const raw=prompt('Informe o valor da negociação (R$). Você poderá alterá-lo editando o card.',Number(oldValue)>0?String(oldValue).replace('.',','):'');
+    if(raw===null)return null;
+    const value=parseDealAmount(raw);
+    if(value===null){showToast('Valor inválido. Informe um valor positivo, como 1250,00.');return null;}
+    return value;
+  }
   function stageDisplaysValue(stage) {
     if(!stage || stage.is_lost) return false;
     const label=String(stage.name||'').trim().toLocaleLowerCase('pt-BR');
@@ -1233,23 +1253,29 @@
     if(!deal||!stage||!card||!targetZone)return;
     if(Number(deal.stage_id)===Number(stage.id))return;
     if(Number(deal.pipeline_id)!==Number(stage.pipeline_id)) { showToast('Esta coluna pertence a outro funil.'); return; }
-    const oldStageId=Number(deal.stage_id), oldStage=deal.stage;
+    const oldStageId=Number(deal.stage_id), oldStage=deal.stage, oldValue=Number(deal.value)||0;
+    let negotiatedValue=null;
+    if(isNegotiationStage(stage)&&!isNegotiationStage((state.pipelineStages||[]).find(s=>Number(s.id)===oldStageId))){
+      negotiatedValue=askNegotiationAmount(oldValue);
+      if(negotiatedValue===null)return;
+    }
     const sourceZone=card.parentElement;
     const oldClosedAt=deal.closed_at||null; const oldStageEnteredAt=deal.stage_entered_at||null; const oldStageEstimated=Boolean(deal.stage_entered_at_estimated);
     deal.stage_id=Number(stage.id);deal.stage=stage.name;deal.is_won=Boolean(stage.is_won);deal.is_lost=Boolean(stage.is_lost);
+    if(negotiatedValue!==null)deal.value=negotiatedValue;
     deal.stage_entered_at=new Date().toISOString();deal.stage_entered_at_estimated=false;
     deal.closed_at=(stage.is_won||stage.is_lost)?new Date().toISOString():null;
     card.dataset.stageId=String(stage.id);card.classList.add('saving-stage');
     targetZone.appendChild(card); updateStageCountsInDom();
     try {
-      await api('deals','PATCH',{id:Number(deal.id),pipeline_id:Number(deal.pipeline_id),stage_id:Number(stage.id)});
+      await api('deals','PATCH',{id:Number(deal.id),pipeline_id:Number(deal.pipeline_id),stage_id:Number(stage.id),...(negotiatedValue!==null?{value:negotiatedValue}:{})});
       await api('activities','POST',{title:'Oportunidade movida',body:`${deal.title}: ${oldStage||'Etapa anterior'} → ${stage.name}`,type:'stage_change',contact_id:Number(deal.contact_id),deal_id:Number(deal.id)}).catch(e=>console.warn('Histórico não registrado:',e.message));
       const cardHost=document.createElement('div'); cardHost.innerHTML=window.dealCard(deal).trim(); const refreshedCard=cardHost.firstElementChild;
       if(refreshedCard)card.replaceWith(refreshedCard); else card.classList.remove('saving-stage');
       updateStageCountsInDom();
       showToast(`Oportunidade movida para “${stage.name}”.`);
     } catch(e) {
-      deal.stage_id=oldStageId;deal.stage=oldStage;deal.is_won=Boolean((state.pipelineStages||[]).find(st=>Number(st.id)===oldStageId)?.is_won);deal.is_lost=Boolean((state.pipelineStages||[]).find(st=>Number(st.id)===oldStageId)?.is_lost);deal.closed_at=oldClosedAt;deal.stage_entered_at=oldStageEnteredAt;deal.stage_entered_at_estimated=oldStageEstimated;
+      deal.stage_id=oldStageId;deal.stage=oldStage;deal.value=oldValue;deal.is_won=Boolean((state.pipelineStages||[]).find(st=>Number(st.id)===oldStageId)?.is_won);deal.is_lost=Boolean((state.pipelineStages||[]).find(st=>Number(st.id)===oldStageId)?.is_lost);deal.closed_at=oldClosedAt;deal.stage_entered_at=oldStageEnteredAt;deal.stage_entered_at_estimated=oldStageEstimated;
       card.dataset.stageId=String(oldStageId);card.classList.remove('saving-stage');
       if(sourceZone)sourceZone.appendChild(card);
       updateStageCountsInDom();
@@ -1382,7 +1408,7 @@
       const ds=deals.filter(d=>Number(d.stage_id)===Number(s.id));
       const total=ds.reduce((a,d)=>a+(Number(d.value)||0),0);
       const testCards=blankTestCards.filter(c=>Number(c.stage_id)===Number(s.id)).map(c=>window.blankTestDealCard(c)).join('');
-      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${stageDisplaysValue(s)?ds.length+' · '+money(total):ds.length+' lead(s)'}</span>${canManage?`<div class="stage-head-actions" style="display:flex;gap:3px;margin-left:5px"><button type="button" class="btn small ghost" style="padding:5px" title="Editar nome da coluna" aria-label="Editar nome de ${esc(s.name)}" onclick="editPipelineStageName(${Number(s.id)})">${ico('pencil',12)}</button><button type="button" class="btn small ghost" style="padding:5px" title="Excluir coluna" aria-label="Excluir ${esc(s.name)}" onclick="deletePipelineStage(${Number(s.id)})">${ico('trash-2',12)}</button></div>`:''}</div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
+      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${stageDisplaysValue(s)?ds.length+' · '+money(total):ds.length+' lead(s)'}</span>${canManage?`<details class="stage-options-menu" style="position:relative;margin-left:5px;z-index:12"><summary class="btn small ghost" style="padding:5px;list-style:none" title="Opções da coluna" aria-label="Opções da coluna ${esc(s.name)}">${ico('ellipsis',15)}</summary><div style="position:absolute;right:0;top:100%;min-width:165px;padding:5px;background:var(--panel2);border:1px solid var(--line2);border-radius:9px;z-index:40;box-shadow:0 8px 20px #0009"><button type="button" class="btn small ghost" style="width:100%;justify-content:flex-start" onclick="event.stopPropagation();this.closest('details').open=false;editPipelineStageName(${Number(s.id)})">${ico('pencil',12)} Editar nome</button><button type="button" class="btn small ghost" style="width:100%;justify-content:flex-start" onclick="event.stopPropagation();this.closest('details').open=false;deletePipelineStage(${Number(s.id)})">${ico('trash-2',12)} Excluir coluna</button></div></details>`:''}</div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
     }).join('');
     const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
@@ -1684,6 +1710,14 @@
     }
   }
 
+  window.updateDealValueField = function() {
+    const stageId=Number(document.querySelector('#modalBody select[name="stage_id"]')?.value||0);
+    const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===stageId);
+    const wrap=document.getElementById('dealValueField'),input=document.getElementById('dealValueInput');
+    if(!wrap||!input)return;
+    wrap.style.display=stageDisplaysValue(stage)?'':'none';
+    input.required=stageDisplaysValue(stage);
+  };
   window.openModal = function(type,id=null,stage=null) {
     modalType=type; editingId=id;
     const arr={contact:state.contacts,deal:state.deals,task:state.tasks,activity:state.activities}[type]||[];
@@ -1705,7 +1739,7 @@
       const selectedStage=item?.stage_id || stageFromCaller?.value || stageOptions.find(s=>!((state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_won || (state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_lost))?.value || stageOptions[0]?.value || '';
       const retainedValue = item ? (item.value ?? 0) : 0;
       const retainedClose = item ? (item.close || item.expected_close_date || '') : '';
-      fields=`<div class="form-grid">${formField('Nome do lead *','title',inputMarkup('title',item?.title||'','text','Ex.: Festa de aniversário - João'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<input type="hidden" name="value" value="${esc(retainedValue)}"><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Sua base ainda está vazia? Clique em “Criar contato novo” acima para cadastrar o contato diretamente aqui.</p>':''}<p class="form-help">O valor e a previsão de fechamento são preservados, mas não precisam ser preenchidos aqui. Você pode escolher a etapa no formulário ou arrastar o card no funil.</p>`;
+      fields=`<div class="form-grid">${formField('Nome do lead *','title',inputMarkup('title',item?.title||'','text','Ex.: Festa de aniversário - João'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<div id="dealValueField" class="form-field field-full"><label for="dealValueInput">Valor da negociação (R$) *</label><input id="dealValueInput" name="value" type="number" min="0.01" max="9999999999.99" step="0.01" value="${Number(retainedValue)>0?esc(retainedValue):''}" placeholder="Ex.: 2500,00"><div class="form-help">O valor poderá ser alterado sempre que você editar este card.</div></div><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Sua base ainda está vazia? Clique em “Criar contato novo” acima para cadastrar o contato diretamente aqui.</p>':''}<p class="form-help">O valor é solicitado ao entrar em Negociação e pode ser alterado na edição do card. Nas demais etapas ele é preservado, mas não exibido no funil.</p>`;
     } else if(type==='task') {
       title=item?'Editar tarefa':'Nova tarefa'; subtitle='Defina o próximo passo e salve para a equipe.';
       const statusOpts=['Pendente','Em andamento','Concluída','Cancelada'].map(x=>({value:x,label:x}));
@@ -1720,6 +1754,7 @@
     }
     document.getElementById('modalTitle').textContent=title; document.getElementById('modalSubtitle').textContent=subtitle;
     document.getElementById('modalBody').innerHTML=fields; document.getElementById('modalSubmit').textContent=item?'Salvar alterações':'Salvar';
+    if(type==='deal'){document.querySelector('#modalBody select[name="stage_id"]')?.addEventListener('change',window.updateDealValueField);window.updateDealValueField();}
     const foot=document.querySelector('.modal-foot'); let del=document.getElementById('nexoDeleteRecord'); if(del)del.remove();
     if(item && ['contact','deal','task'].includes(type)) { del=document.createElement('button');del.id='nexoDeleteRecord';del.type='button';del.className='btn ghost';del.textContent='Arquivar';del.onclick=deleteCurrentRecord;foot.insertBefore(del,foot.firstChild); }
     document.getElementById('modalBackdrop').classList.add('open'); setTimeout(()=>document.querySelector('#modalBody input, #modalBody select, #modalBody textarea')?.focus(),80);
@@ -1763,12 +1798,14 @@
 
         const previousDeal=editingId?(state.deals||[]).find(x=>Number(x.id)===Number(editingId)):null;
         const previousStageId=previousDeal?Number(previousDeal.stage_id):null;
+        const amount=stageDisplaysValue(selectedStage)?parseDealAmount(d.value):Number(previousDeal?.value||0);
+        if(stageDisplaysValue(selectedStage)&&amount===null)throw new Error('Informe o valor da negociação para salvar o card.');
         const payload={
           title:d.title.trim(),
           contact_id:contactId,
           pipeline_id:pipelineId,
           stage_id:Number(selectedStage.id),
-          value:Number(d.value)||0,
+          value:amount||0,
           description:d.description||null,
           owner_id:d.owner_id?Number(d.owner_id):null,
           expected_close_date:d.expected_close_date||null,
