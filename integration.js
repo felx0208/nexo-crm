@@ -2416,7 +2416,8 @@
     const form=event.currentTarget,btn=form.querySelector('button[type="submit"]'),step=form.querySelector('#crmNewPasswordStep');
     if(btn.disabled||!currentUser)return;
     const verification=crmPasswordVerifiedForms.get(form);
-    if(step.disabled||!verification||verification.authId!==currentUser.auth_user_id||verification.expires<=Date.now()){
+    if(step.disabled){await window.verifyOwnCrmPassword(form);return;}
+    if(!verification||verification.authId!==currentUser.auth_user_id||verification.expires<=Date.now()){
       window.invalidateCrmPasswordVerification(form);crmPasswordFeedback(form,'Valide sua senha atual antes de escolher a nova senha.');return;
     }
     const field=form.elements.namedItem('current_password'),newField=form.elements.namedItem('new_password'),confirmField=form.elements.namedItem('confirm_password');
