@@ -813,13 +813,117 @@
     }catch(e){/* A próxima consulta recupera as novidades após reconexão. */}
     finally{leadNoticeBusy=false;}
   }
+  // Central de ajuda: envio por qualquer perfil ativo; leitura e atendimento exclusivos do admin.
+  const helpCategories={duvida:'Dúvida',problema:'Problema no sistema',sugestao:'Sugestão',outro:'Outro'};
+  const helpStatuses={new:'Novo',read:'Lido',resolved:'Resolvido'};
+  let supportRows=[],supportLoaded=false,supportError='',supportBusy=false,supportFilter='all',supportExpanded=null,supportTimer=null,supportNoticeSignature='',supportUnread=0,supportRefreshGeneration=0;
+  function isSupportAdmin(){return !!currentUser&&currentUser.role==='admin';}
+  function supportBadge(){
+    const nav=document.getElementById('crmSupportAdminNav'),badge=document.getElementById('crmSupportCount');
+    if(nav)nav.hidden=!isSupportAdmin();if(badge){badge.textContent=String(supportUnread);badge.hidden=!supportUnread;}
+  }
+  function hideSupportNotice(){const el=document.getElementById('crmSupportNotice');if(el)el.hidden=true;}
+  window.dismissCrmSupportNotice=hideSupportNotice;
+  window.openCrmSupportNotice=function(){if(!isSupportAdmin())return;hideSupportNotice();window.navigate('support-inbox');};
+  function updateSupportNotice(rows,notify){
+    if(!isSupportAdmin())return;
+    const unread=rows.filter(r=>r.status==='new');supportUnread=unread.length;supportBadge();
+    const signature=unread.map(r=>String(r.id)).sort().join(',');
+    const el=document.getElementById('crmSupportNotice');if(!el)return;
+    if(!signature){supportNoticeSignature='';hideSupportNotice();return;}
+    if(notify&&signature!==supportNoticeSignature&&currentPage!=='support-inbox'){
+      document.getElementById('crmSupportNoticeTitle').textContent=unread.length===1?'Novo pedido de ajuda':unread.length+' pedidos de ajuda';
+      document.getElementById('crmSupportNoticeText').textContent=unread.length===1?'Uma solicitação aguarda sua atenção.':'Há solicitações aguardando sua atenção.';
+      el.hidden=false;
+    }
+    supportNoticeSignature=signature;
+  }
+  function sameSupportRows(a,b){return JSON.stringify(a)===JSON.stringify(b);}
+  async function refreshSupportInbox({notify=true,forceRender=false}={}){
+    if(!isSupportAdmin()||supportBusy)return;
+    const id=Number(currentUser.id),generation=supportRefreshGeneration;supportBusy=true;
+    try{
+      const rows=await getAllRows(()=>sb().from('crm_help_requests').select('id,requester_id,category,subject,message,status,created_at,updated_at,requester:users!crm_help_requests_requester_id_fkey(name)').order('created_at',{ascending:false}).order('id',{ascending:false}));
+      if(!isSupportAdmin()||Number(currentUser.id)!==id||generation!==supportRefreshGeneration)return;
+      const changed=!supportLoaded||!sameSupportRows(supportRows,rows||[]);
+      supportRows=rows||[];supportLoaded=true;supportError='';updateSupportNotice(supportRows,notify);
+      if(currentPage==='support-inbox'&&(changed||forceRender))window.render();
+    }catch(e){
+      if(!isSupportAdmin()||Number(currentUser.id)!==id||generation!==supportRefreshGeneration)return;
+      supportError='Não foi possível carregar as solicitações. Tente novamente.';
+      if(currentPage==='support-inbox')window.render();
+    }finally{if(generation===supportRefreshGeneration)supportBusy=false;}
+  }
+  function startSupportMonitor(){
+    if(supportTimer!==null)clearInterval(supportTimer);supportTimer=null;supportBadge();
+    if(!isSupportAdmin())return;
+    refreshSupportInbox();
+    supportTimer=setInterval(()=>{if(!document.hidden)refreshSupportInbox();},30000);
+  }
+  function stopSupportMonitor(){
+    if(supportTimer!==null)clearInterval(supportTimer);supportTimer=null;
+    supportRefreshGeneration++;supportBusy=false;supportRows=[];supportLoaded=false;supportFilter='all';supportExpanded=null;supportError='';supportNoticeSignature='';supportUnread=0;hideSupportNotice();
+    const nav=document.getElementById('crmSupportAdminNav');if(nav)nav.hidden=true;
+    const badge=document.getElementById('crmSupportCount');if(badge)badge.hidden=true;
+    if(currentPage==='support-inbox')currentPage='dashboard';
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&isSupportAdmin()&&supportTimer!==null)refreshSupportInbox();});
+  window.addEventListener('focus',()=>{if(isSupportAdmin()&&supportTimer!==null)refreshSupportInbox();});
+  window.helpPage=function(){
+    return pageHeader('SUPORTE CIRANDAÊ','Central de ajuda','Envie suas dúvidas, sugestões ou dificuldades diretamente à administração.')+
+      '<div class="crm-help-layout"><section class="card crm-glow-panel crm-help-hero"><div class="crm-help-mark"><img src="cirandae-logo.svg" alt="CIRANDAÊ"></div><div class="eyebrow">ESTAMOS AQUI PARA AJUDAR</div><h2>Como podemos ajudar?</h2><p>Conte o que aconteceu ou sugira uma melhoria. Sua mensagem será recebida somente pela administração do CRM.</p><div class="crm-help-private">'+ico('lock',17)+' Canal interno e reservado</div><p class="form-help">Não envie senhas, códigos de acesso, chaves de API ou outros dados confidenciais.</p></section><section class="card crm-help-form-panel"><div class="card-title">Enviar pedido de ajuda</div><p class="card-sub">Seu perfil será vinculado automaticamente à solicitação.</p><form id="crmHelpForm" onsubmit="submitCrmHelp(event)"><div class="form-field"><label for="crmHelpCategory">Categoria</label><select id="crmHelpCategory" name="category" required><option value="duvida">Dúvida</option><option value="problema">Problema no sistema</option><option value="sugestao">Sugestão de melhoria</option><option value="outro">Outro assunto</option></select></div><div class="form-field"><label for="crmHelpSubject">Assunto</label><input id="crmHelpSubject" name="subject" minlength="3" maxlength="120" required placeholder="Resuma o que precisa"></div><div class="form-field"><label for="crmHelpMessage">Mensagem</label><textarea id="crmHelpMessage" name="message" minlength="10" maxlength="4000" rows="7" required placeholder="Descreva sua dúvida ou o que aconteceu..."></textarea><p class="form-help">Inclua detalhes suficientes para entender o pedido.</p></div><p class="crm-help-feedback" role="status" aria-live="polite" hidden></p><button type="submit" class="btn primary">'+ico('arrow',16)+' Enviar solicitação</button></form></section></div>';
+  };
+  window.submitCrmHelp=async function(event){
+    event.preventDefault();const form=event.currentTarget,btn=form.querySelector('button[type="submit"]'),feedback=form.querySelector('.crm-help-feedback');
+    if(!currentUser||btn.disabled)return;const data=new FormData(form);
+    const category=String(data.get('category')||''),subject=String(data.get('subject')||'').trim(),message=String(data.get('message')||'').trim();
+    function report(msg,ok){feedback.hidden=false;feedback.textContent=msg;feedback.classList.toggle('success',!!ok);}
+    if(!Object.hasOwn(helpCategories,category)||subject.length<3||subject.length>120||message.length<10||message.length>4000){report('Informe um assunto e uma mensagem válida.',false);return;}
+    btn.disabled=true;btn.textContent='Enviando...';
+    try{
+      const result=await sb().from('crm_help_requests').insert({category,subject,message});
+      if(result.error)throw result.error;
+      form.reset();report('Solicitação enviada à administração.',true);showToast('Pedido de ajuda enviado.');
+    }catch(e){report('Não foi possível enviar sua solicitação. Tente novamente.',false);}
+    finally{btn.disabled=false;btn.innerHTML=ico('arrow',16)+' Enviar solicitação';}
+  };
+  window.supportInboxPage=function(){
+    if(!isSupportAdmin())return '<section class="card"><h3>Acesso restrito</h3><p>Somente a administração pode acessar esta área.</p></section>';
+    const visible=supportRows.filter(r=>supportFilter==='all'||r.status===supportFilter);
+    const filters=[['all','Todos'],['new','Novos'],['read','Lidos'],['resolved','Resolvidos']];
+    const toolbar='<div class="crm-help-filters">'+filters.map(([key,label])=>'<button type="button" class="btn small '+(supportFilter===key?'primary':'ghost')+'" onclick="setSupportFilter(\''+key+'\')">'+label+' · '+(key==='all'?supportRows.length:supportRows.filter(r=>r.status===key).length)+'</button>').join('')+'</div>';
+    const rows=visible.map(r=>{
+      const expanded=Number(supportExpanded)===Number(r.id),name=r.requester?.name||'Usuário',date=new Date(r.created_at).toLocaleString('pt-BR',{dateStyle:'short',timeStyle:'short',timeZone:'America/Sao_Paulo'});
+      return '<article class="card crm-support-ticket '+(r.status==='new'?'unread':'')+'"><button class="crm-support-ticket-head" type="button" aria-expanded="'+expanded+'" onclick="openSupportTicket('+Number(r.id)+')"><span class="crm-support-ticket-icon">'+ico('note',20)+'</span><span class="crm-support-ticket-copy"><strong>'+esc(r.subject)+'</strong><small>'+esc(name)+' · '+esc(helpCategories[r.category]||r.category)+' · '+esc(date)+'</small></span><span class="status '+(r.status==='new'?'light':'muted')+'">'+esc(helpStatuses[r.status]||r.status)+'</span><span class="crm-support-chevron">'+(expanded?'−':'+')+'</span></button>'+(expanded?'<div class="crm-support-ticket-body"><div class="crm-support-message">'+esc(r.message)+'</div><div class="crm-support-actions">'+(r.status!=='resolved'?'<button type="button" class="btn primary small" onclick="setSupportStatus('+Number(r.id)+',\'resolved\')">Marcar como resolvido</button>':'<button type="button" class="btn ghost small" onclick="setSupportStatus('+Number(r.id)+',\'read\')">Reabrir pedido</button>')+'</div></div>':'')+'</article>';
+    }).join('');
+    return pageHeader('ADMINISTRAÇÃO','Pedidos de ajuda','Caixa de entrada reservada ao administrador.',button('Atualizar',"refreshCrmSupportInbox()",false,'arrow'))+
+      '<section class="card crm-glow-panel crm-inbox-summary"><div class="crm-help-mark">'+ico('note',26)+'</div><div><div class="eyebrow">CENTRAL DE ATENDIMENTO INTERNO</div><h2>'+supportUnread+' pedido(s) novo(s)</h2><p class="card-sub">Leia e organize as solicitações enviadas pela equipe.</p></div></section>'+toolbar+(supportError?'<div class="card crm-help-feedback">'+esc(supportError)+'</div>':'')+
+      '<div class="crm-support-list">'+(rows||'<div class="card empty"><strong>'+(!supportLoaded&&!supportError?'Carregando solicitações...':'Nenhuma solicitação nesta visualização')+'</strong></div>')+'</div>';
+  };
+  window.refreshCrmSupportInbox=()=>refreshSupportInbox({notify:false,forceRender:true});
+  window.setSupportFilter=function(filter){if(!isSupportAdmin()||!['all','new','read','resolved'].includes(filter))return;supportFilter=filter;supportExpanded=null;window.render();};
+  window.openSupportTicket=async function(id){
+    if(!isSupportAdmin())return;const row=supportRows.find(r=>Number(r.id)===Number(id));if(!row)return;
+    supportExpanded=Number(supportExpanded)===Number(id)?null:Number(id);window.render();
+    if(supportExpanded&&row.status==='new')await window.setSupportStatus(id,'read');
+  };
+  window.setSupportStatus=async function(id,status){
+    if(!isSupportAdmin()||!['read','resolved'].includes(status))return;
+    const row=supportRows.find(r=>Number(r.id)===Number(id));if(!row)return;
+    try{
+      const result=await sb().from('crm_help_requests').update({status,updated_at:new Date().toISOString()}).eq('id',Number(id)).select('id,status,updated_at').maybeSingle();
+      if(result.error||!result.data)throw new Error('Solicitação indisponível.');
+      Object.assign(row,result.data);if(supportFilter!=='all'&&supportFilter!==status)supportFilter='all';
+      updateSupportNotice(supportRows,false);window.render();if(status==='resolved')showToast('Pedido marcado como resolvido.');
+    }catch(e){showToast('Não foi possível atualizar a solicitação.');}
+  };
   function startLeadNoticeMonitor(){
     if(leadNoticeTimer!==null)clearInterval(leadNoticeTimer);
-    renderLeadNotice();leadNoticeTimer=setInterval(pollNewLeads,30000);
+    renderLeadNotice();leadNoticeTimer=setInterval(pollNewLeads,30000);startSupportMonitor();
   }
   function stopLeadNoticeMonitor(){
     if(leadNoticeTimer!==null)clearInterval(leadNoticeTimer);
-    leadNoticeTimer=null;leadNoticeProfile=null;leadSeen=null;leadNoticePending.clear();renderLeadNotice();
+    leadNoticeTimer=null;leadNoticeProfile=null;leadSeen=null;leadNoticePending.clear();renderLeadNotice();stopSupportMonitor();
   }
   document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&leadNoticeTimer!==null)pollNewLeads();});
   window.addEventListener('focus',()=>{if(currentUser&&leadNoticeTimer!==null)pollNewLeads();});
@@ -1043,6 +1147,7 @@
     }
     const cc=document.getElementById('contactCount');
     if(cc) cc.textContent=state.contacts?.length||0;
+    supportBadge();
   }
 
   function liveStat(label,value,icon,note='Calculado com os registros do banco') {
@@ -2478,7 +2583,7 @@
   };
 
   window.navLabel = function(page) {
-    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',reports:'Gestão e análise',settings:'Configurações'})[page] || 'Visão geral';
+    return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',reports:'Gestão e análise',settings:'Configurações',help:'Central de ajuda','support-inbox':'Pedidos de ajuda'})[page] || 'Visão geral';
   };
 
   // Renderização explícita: evita conflitos com os handlers antigos do protótipo inline.
@@ -2492,8 +2597,11 @@
       whatsapp: window.whatsappPage,
       pipeline: window.pipelinePage,
       reports: window.reportsPage,
-      settings: window.settingsPage
+      settings: window.settingsPage,
+      help:window.helpPage,
+      'support-inbox':window.supportInboxPage
     };
+    if(currentPage==='support-inbox'&&!isSupportAdmin())currentPage='dashboard';
     const renderer = pages[currentPage] || window.dashboard;
     document.body.dataset.crmPage=currentPage;
     try {
@@ -2517,16 +2625,18 @@
   // A navegação usada pelos botões é registrada aqui, depois das telas reais do Supabase.
   // Isso impede que a função antiga da prévia HTML sobrescreva o fluxo de navegação.
   window.navigate = function(page) {
-    const allowed = ['dashboard','contacts','whatsapp','pipeline','reports','settings'];
+    const allowed = ['dashboard','contacts','whatsapp','pipeline','reports','settings','help','support-inbox'];
+    if(page==='support-inbox'&&!isSupportAdmin()){showToast('Acesso restrito à administração.');return;}
     if (!allowed.includes(page)) {
       console.warn('[NEXO CRM] Rota desconhecida:', page);
       return;
     }
     currentPage = page;
+    if(page==='support-inbox'){hideSupportNotice();refreshSupportInbox({notify:false,forceRender:true});}
     document.querySelectorAll('.nav-item').forEach(b => b.classList.toggle('active', b.dataset.page === page));
     const breadcrumb = document.getElementById('breadcrumb');
     if (breadcrumb) {
-      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',reports:'Gestão e análise',settings:'Configurações'};
+      const labels = {dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',reports:'Gestão e análise',settings:'Configurações',help:'Central de ajuda','support-inbox':'Pedidos de ajuda'};
       breadcrumb.innerHTML = `Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>${labels[page]}</b>`;
     }
     const sidebar = document.getElementById('sidebar');
