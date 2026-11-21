@@ -12,6 +12,7 @@
   // lança ReferenceError ao abrir o funil antes mesmo de renderizar os cards.
   let pipelineSearchQuery = '';
   let pipelineViewMode = 'board';
+  let boardLayout=(()=>{try{return localStorage.getItem('cirandae-board-layout')==='classic'?'classic':'compact';}catch(e){return 'compact';}})();
   let lastAuthMessage = '';
   // Cards virtuais para testar drag-and-drop; nunca são gravados no Supabase.
   let blankTestCards = [];
@@ -307,7 +308,13 @@
         const value = Number(d.value ?? 0);
         if (!Number.isFinite(value) || value < 0 || value > 9999999999.99) throw new Error('O valor da oportunidade está fora do limite permitido.');
         payload.value = Math.round(value * 100) / 100;
-        payload.contact_id = checkedId(d.contact_id, 'Contato');
+        if(method==='POST')payload.contact_id=checkedId(d.contact_id,'Contato');
+        else {
+          const existing=throwIfError(await client.from('deals').select('contact_id').eq('id',id).is('deleted_at',null).maybeSingle());
+          if(!existing)throw new Error('Lead não encontrado.');
+          if(d.contact_id!==undefined&&Number(d.contact_id)!==Number(existing.contact_id))throw new Error('O contato do lead não pode ser alterado. Arquive o lead e crie outro.');
+          delete payload.contact_id;
+        }
         payload.pipeline_id = checkedId(d.pipeline_id, 'Funil');
         payload.stage_id = checkedId(d.stage_id, 'Etapa');
         if (Object.prototype.hasOwnProperty.call(d,'owner_id')) payload.owner_id = checkedId(d.owner_id, 'Responsável', true);
@@ -955,8 +962,37 @@
     return `<article class="card stat-card"><div class="stat-top"><span>${esc(label)}</span><span class="stat-icon">${ico(icon,17)}</span></div><div class="stat-value">${esc(value)}</div><div class="stat-bottom"><span class="stat-note">${esc(note)}</span></div></article>`;
   }
   window.statusClass = function(s) { return ['Ganho','Qualificado','Concluída','Cliente'].includes(s)?'light':s==='Inativo'||s==='Cancelada'?'muted':''; };
+  let contactViewReturnFocus=null;
+  window.closeContactView=function(){
+    const overlay=document.getElementById('contactViewBackdrop');
+    if(overlay){overlay.classList.remove('open');overlay.setAttribute('aria-hidden','true');}
+    if(contactViewReturnFocus?.isConnected)contactViewReturnFocus.focus();
+    contactViewReturnFocus=null;
+  };
+  window.openContactView=function(id){
+    const c=(state.contacts||[]).find(x=>Number(x.id)===Number(id));
+    if(!c){showToast('Contato não encontrado. Verifique se ele foi arquivado.');return;}
+    const overlay=document.getElementById('contactViewBackdrop'),body=document.getElementById('contactViewBody');
+    if(!overlay||!body){showToast('Atualize a página para abrir a ficha do contato.');return;}
+    contactViewReturnFocus=document.activeElement;
+    const field=(icon,label,value)=>'<div class="contact-detail-field"><span class="contact-detail-icon">'+ico(icon,17)+'</span><div><small>'+esc(label)+'</small><strong>'+esc(value||'Não informado')+'</strong></div></div>';
+    const linked=(state.deals||[]).filter(d=>Number(d.contact_id)===Number(c.id));
+    body.innerHTML='<div class="contact-profile"><div class="contact-profile-avatar">'+esc(initials(c.name))+'</div><div><h2>'+esc(c.name)+'</h2><p>'+esc(c.company&&c.company!==c.name?c.company:'Contato comercial')+'</p><span class="contact-view-status">'+esc(c.status||'Novo lead')+'</span></div></div><div class="contact-detail-grid">'+field('phone','Telefone',c.phone)+field('mail','E-mail',c.email)+field('users','Responsável',c.owner)+field('target','Origem',c.source)+'</div><section class="contact-detail-section"><h3>'+ico('note',15)+' Observações</h3><p>'+esc(c.notes||'Nenhuma observação registrada.')+'</p></section><section class="contact-detail-section"><h3>'+ico('target',15)+' Leads vinculados · '+linked.length+'</h3>'+(linked.length?linked.map(d=>'<div class="contact-linked-lead"><strong>'+esc(d.title)+'</strong><span>'+esc(d.stage||'Sem etapa')+'</span></div>').join(''):'<p>Nenhum lead vinculado.</p>')+'</section>';
+    overlay.classList.add('open');overlay.setAttribute('aria-hidden','false');
+    overlay.querySelector('button')?.focus();
+  };
+  document.addEventListener('keydown',event=>{
+    const view=document.getElementById('contactViewBackdrop');
+    if(!view?.classList.contains('open'))return;
+    if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();window.closeContactView();}
+    if(event.key==='Tab'){
+      const buttons=[...view.querySelectorAll('button:not([disabled]),a[href]')];if(!buttons.length)return;
+      if(event.shiftKey&&document.activeElement===buttons[0]){event.preventDefault();buttons.at(-1).focus();}
+      else if(!event.shiftKey&&document.activeElement===buttons.at(-1)){event.preventDefault();buttons[0].focus();}
+    }
+  },true);
   window.contactRow = function(c) {
-    return `<tr><td><div class="contact-cell"><div class="avatar">${esc(c.initials||initials(c.name))}</div><div><div class="contact-name">${esc(c.name)}</div><div class="contact-company">${esc(c.company||'—')}</div></div></div></td><td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td><span class="status ${statusClass(c.status)}">${esc(c.status||'Novo lead')}</span></td><td>${esc(c.owner||'—')}</td><td><div style="display:flex;justify-content:flex-end"><button class="icon-button" aria-label="Editar contato" title="Editar contato" onclick="openModal('contact',${c.id})">${ico('dots',17)}</button></div></td></tr>`;
+    return `<tr><td><div class="contact-cell"><div class="avatar">${esc(c.initials||initials(c.name))}</div><div><div class="contact-name">${esc(c.name)}</div><div class="contact-company">${esc(c.company||'—')}</div></div></div></td><td>${esc(c.email||'—')}</td><td>${esc(c.phone||'—')}</td><td><span class="status ${statusClass(c.status)}">${esc(c.status||'Novo lead')}</span></td><td>${esc(c.owner||'—')}</td><td><div class="contact-row-actions"><button type="button" class="contact-view-button" onclick="openContactView(${Number(c.id)})">${ico('eye',15)} Ver contato</button><button type="button" class="icon-button" aria-label="Editar contato" title="Editar contato" onclick="openModal('contact',${c.id})">${ico('pencil',16)}</button></div></td></tr>`;
   };
   window.activityItem = function(a) {
     const title=a.title || 'Atividade registrada';
@@ -1274,12 +1310,12 @@
     }catch(e){console.warn('Histórico adicional não carregado:',e.message);}
   }
   window.dealCard = function(d) {
-    const meta=dealRiskMeta(d);
-    const toneLabel={good:'Verde · contato recente',warning:'Amarelo · acompanhar',critical:'Vermelho · contato atrasado',unknown:'Cinza · sem interação registrada'}[meta.recency.tone];
-    const stageAge=meta.age;
-    const showStageAge=dealIsOpen(d)&&stageAge.days!==null&&stageAge.days>=3;
-    const firstRisk=meta.flags.find(f=>f.label==='Retorno vencido')||meta.flags.find(f=>f.tone==='critical')||meta.flags.find(f=>f.tone==='warning');
-    return `<article class="deal-card ${meta.score>=75?'deal-card-risk':''}" data-deal-id="${d.id}" data-stage-id="${d.stage_id}" draggable="true" ondragstart="handleDealDragStart(event,${d.id})" ondragend="handleDealDragEnd(event)" onclick="if(Date.now()<(window.__nexoSuppressClickUntil||0)){event.preventDefault();return false;}openModal('deal',${d.id})"><span class="deal-recency-dot recency-${meta.recency.tone}" title="${esc(`${toneLabel}. ${meta.recency.title}`)}" aria-label="${esc(toneLabel)}"></span><strong>${esc(d.title)}</strong>${dealContactLabel(d)?'<div class="deal-company">'+esc(dealContactLabel(d))+'</div>':''}${dealHistorySummary(d)}<div class="deal-contact-recency">${esc(meta.recency.label)}</div>${showStageAge?`<div class="deal-stage-age ${stageAge.critical?'critical':stageAge.stale?'warning':''}" title="${stageAge.estimated?'Tempo aproximado com base na última atualização anterior à instalação do contador.':'Tempo desde que o negócio entrou nesta etapa.'}">${esc(stageAge.label)}${stageAge.estimated?' · estimado':''}</div>`:''}${meta.overdue?'<div class="deal-followup-alert" title="Existe uma tarefa aberta vinculada a este lead com prazo vencido">⌛ Retorno vencido</div>':firstRisk&&firstRisk.label!=='Retorno vencido'&&meta.score>=25?`<div class="deal-risk-tag ${firstRisk.tone}">${esc(firstRisk.label)}</div>`:''}${dealDisplaysValue(d)?`<div class="deal-price">${money(d.value)}</div>`:''}<div class="deal-foot"><span class="deal-owner"><span class="tiny-avatar">${initials(d.owner||'')}</span>${esc(d.owner||'—')}</span><span>${datePt(d.close)}</span></div></article>`;
+    const meta=dealRiskMeta(d),stageAge=meta.age;
+    const name=dealContactLabel(d),contactId=Number(d.contact_id);
+    const toneLabel={good:'Contato recente',warning:'Acompanhar',critical:'Contato atrasado',unknown:'Sem interação registrada'}[meta.recency.tone];
+    const risk=meta.flags.find(f=>f.label==='Retorno vencido')||meta.flags.find(f=>f.tone==='critical')||meta.flags.find(f=>f.tone==='warning');
+    const owner=d.owner||'Sem responsável';
+    return `<article class="deal-card crm-lead-card ${meta.score>=75?'deal-card-risk':''}" data-deal-id="${Number(d.id)}" data-stage-id="${Number(d.stage_id)}" draggable="true" tabindex="0" aria-label="Editar lead ${esc(d.title)}" onkeydown="if(event.target===this&&(event.key==='Enter'||event.key===' ')){event.preventDefault();openModal('deal',${Number(d.id)})}" ondragstart="handleDealDragStart(event,${Number(d.id)})" ondragend="handleDealDragEnd(event)" onclick="if(Date.now()<(window.__nexoSuppressClickUntil||0)){event.preventDefault();return false;}openModal('deal',${Number(d.id)})"><div class="crm-lead-head"><span class="crm-lead-symbol">${ico('building',16)}</span><strong title="${esc(d.title)}">${esc(d.title)}</strong><span class="deal-recency-dot recency-${meta.recency.tone}" title="${esc(toneLabel+'. '+meta.recency.title)}" aria-label="${esc(toneLabel)}"></span></div>${name?'<div class="deal-company" title="'+esc(name)+'">'+esc(name)+'</div>':''}<div class="crm-lead-meta">${dealHistorySummary(d)}<div class="deal-contact-recency" title="${esc(meta.recency.title)}">${esc(meta.recency.label)}</div>${dealIsOpen(d)&&stageAge.days!==null&&stageAge.days>=3?`<div class="deal-stage-age ${stageAge.critical?'critical':stageAge.stale?'warning':''}" title="${esc(stageAge.label)}">${esc(stageAge.label)}${stageAge.estimated?' · est.':''}</div>`:''}</div>${meta.overdue?'<div class="deal-followup-alert">Retorno vencido</div>':risk&&meta.score>=25?`<div class="deal-risk-tag ${risk.tone}">${esc(risk.label)}</div>`:''}${dealDisplaysValue(d)?`<div class="deal-price">${money(d.value)}</div>`:''}<div class="deal-foot"><span class="deal-owner" title="${esc(owner)}"><span class="tiny-avatar">${esc(initials(d.owner||''))||'–'}</span><span class="crm-owner-name">${esc(d.owner||'—')}</span></span>${d.close?`<span>${datePt(d.close)}</span>`:''}</div>${contactId?`<button type="button" class="contact-view-button card-contact-button" draggable="false" onclick="event.stopPropagation();openContactView(${contactId})">${ico('eye',13)} Ver contato</button>`:''}</article>`;
   };
 
   window.allowDealDrop = function(event) {
@@ -1307,7 +1343,8 @@
       const stageId=Number(column.dataset.stageColumn);
       const deals=(state.deals||[]).filter(d=>Number(d.stage_id)===stageId);
       const summary=column.querySelector('.stage-summary');
-      if(summary){const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===stageId);summary.textContent=stageDisplaysValue(stage)?`${deals.length} · ${money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0))}`:`${deals.length} lead(s)`;}
+      if(summary)summary.textContent=deals.length+' lead(s)';
+      const total=column.querySelector('.crm-stage-value');if(total)total.textContent=money(deals.reduce((sum,d)=>sum+(Number(d.value)||0),0));
     });
   }
   async function moveDealToStage(dealId,targetStageId) {
@@ -1459,6 +1496,34 @@
       <p class="pipeline-analysis-note">Os alertas usam a data da última interação registrada, tarefas abertas e o tempo nesta etapa. Nas oportunidades antigas, o tempo na etapa pode aparecer como estimativa até o primeiro movimento registrado após a atualização.</p>
     </section>`;
   }
+  window.setBoardLayout=function(mode){
+    boardLayout=mode==='classic'?'classic':'compact';
+    try{localStorage.setItem('cirandae-board-layout',boardLayout);}catch(e){}
+    render();
+  };
+  let stageMenuTrigger=null;
+  window.closeStageOptions=function(){
+    document.getElementById('floatingStageOptions')?.remove();
+    if(stageMenuTrigger)stageMenuTrigger.setAttribute('aria-expanded','false');
+    stageMenuTrigger=null;
+  };
+  window.openStageOptions=function(event,id){
+    event.stopPropagation();
+    const trigger=event.currentTarget;
+    if(stageMenuTrigger===trigger){window.closeStageOptions();return;}
+    window.closeStageOptions();
+    const stage=(state.pipelineStages||[]).find(x=>Number(x.id)===Number(id));if(!stage)return;
+    const el=document.createElement('div');el.id='floatingStageOptions';el.className='floating-stage-options';
+    el.innerHTML='<button type="button" onclick="closeStageOptions();editPipelineStageName('+Number(id)+')">'+ico('pencil',16)+'<span>Editar coluna</span></button><button type="button" onclick="closeStageOptions();deletePipelineStage('+Number(id)+')">'+ico('trash-2',16)+'<span>Excluir coluna</span></button>';
+    document.body.appendChild(el);const rect=trigger.getBoundingClientRect();
+    el.style.left=Math.max(8,Math.min(rect.right-el.offsetWidth,window.innerWidth-el.offsetWidth-8))+'px';
+    el.style.top=Math.max(8,rect.bottom+el.offsetHeight+10>window.innerHeight?rect.top-el.offsetHeight-6:rect.bottom+6)+'px';
+    stageMenuTrigger=trigger;trigger.setAttribute('aria-expanded','true');
+  };
+  document.addEventListener('click',event=>{if(stageMenuTrigger&&!event.target.closest?.('#floatingStageOptions')&&!stageMenuTrigger.contains(event.target))window.closeStageOptions();});
+  document.addEventListener('scroll',()=>{if(stageMenuTrigger)window.closeStageOptions();},true);
+  window.addEventListener('resize',()=>{if(stageMenuTrigger)window.closeStageOptions();});
+  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&stageMenuTrigger)window.closeStageOptions();});
   window.setPipelineViewMode = function(mode) {
     pipelineViewMode=mode==='analysis'?'analysis':'board';
     render();
@@ -1473,11 +1538,12 @@
       const ds=deals.filter(d=>Number(d.stage_id)===Number(s.id));
       const total=ds.reduce((a,d)=>a+(Number(d.value)||0),0);
       const testCards='';
-      return `<section class="stage-column" data-stage-column="${s.id}"><div class="stage-head"><strong title="${esc(s.name)}">${esc(s.name)}</strong><span class="stage-summary">${stageDisplaysValue(s)?ds.length+' · '+money(total):ds.length+' lead(s)'}</span>${canManage?`<details class="stage-options-menu" style="position:relative;margin-left:5px;z-index:12"><summary class="btn small ghost" style="padding:5px;list-style:none" title="Opções da coluna" aria-label="Opções da coluna ${esc(s.name)}">${ico('ellipsis',15)}</summary><div class="stage-options-popover"><button type="button" class="stage-menu-action" onclick="event.stopPropagation();this.closest('details').open=false;editPipelineStageName(${Number(s.id)})"><span class="stage-action-art stage-action-art-edit">${ico('pencil',17)}</span><span class="stage-action-copy"><strong>Editar coluna</strong></span></button><button type="button" class="stage-menu-action stage-menu-action-danger" onclick="event.stopPropagation();this.closest('details').open=false;deletePipelineStage(${Number(s.id)})"><span class="stage-action-art stage-action-art-delete">${ico('trash-2',17)}</span><span class="stage-action-copy"><strong>Excluir coluna</strong></span></button></div></details>`:''}</div><div class="stage-cards" data-stage-dropzone="${s.id}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${s.id})">${ds.map(dealCard).join('')}${testCards}</div><button class="btn small ghost stage-add-deal" style="margin:0 8px 8px;width:calc(100% - 16px);justify-content:center" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
+      return `<section class="stage-column ${s.is_won?'stage-won':s.is_lost?'stage-lost':''}" data-stage-column="${Number(s.id)}"><div class="stage-head"><div class="crm-stage-heading"><span class="crm-stage-icon">${ico(s.is_won?'check':s.is_lost?'x':'target',14)}</span><strong title="${esc(s.name)}">${esc(s.name)}</strong>${canManage?`<button type="button" class="crm-stage-options" title="Opções da coluna" aria-label="Opções da coluna ${esc(s.name)}" aria-expanded="false" onclick="openStageOptions(event,${Number(s.id)})">${ico('ellipsis',15)}</button>`:''}</div><div class="crm-stage-metrics"><span class="stage-summary">${ds.length} lead(s)</span>${stageDisplaysValue(s)?`<span class="crm-stage-value">${money(total)}</span>`:''}</div></div><div class="stage-cards" data-stage-dropzone="${Number(s.id)}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${Number(s.id)})">${ds.map(dealCard).join('')}</div><button type="button" class="btn small ghost stage-add-deal" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
+
     }).join('');
     const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
-    const board=`<div class="pipeline-board">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada; o card de teste não entra nos indicadores.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em negociação</div><div class="card-sub">Soma das oportunidades na coluna Negociação.</div></div><strong>${money(deals.filter(d=>dealIsOpen(d)&&dealDisplaysValue(d)).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
+    const board=`<div class="board-layout-toolbar"><span>${ico('layout',14)} Exibição do funil</span><div class="board-layout-switch" role="group" aria-label="Formato das colunas"><button type="button" class="${boardLayout==='compact'?'active':''}" aria-pressed="${boardLayout==='compact'}" onclick="setBoardLayout('compact')">${ico('columns',14)} Compacto</button><button type="button" class="${boardLayout==='classic'?'active':''}" aria-pressed="${boardLayout==='classic'}" onclick="setBoardLayout('classic')">${ico('list',14)} Clássico</button></div><small>${boardLayout==='compact'?'Rolagem independente em cada coluna':'Colunas abertas; role a página inteira'}</small></div><div class="pipeline-board board-${boardLayout}">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em negociação</div><div class="card-sub">Soma das oportunidades na coluna Negociação.</div></div><strong>${money(deals.filter(d=>dealIsOpen(d)&&dealDisplaysValue(d)).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
     const actions=(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Importar leads',"openLeadImportSettings()",false,'download')+button('Adicionar lead',"openModal('deal')",true,'target');
     return `${pageHeader('LEADS','Funil de vendas','Acompanhe os leads, identifique oportunidades e priorize o próximo contato.',actions)}${controls}${canManage&&pipelineViewMode==='board'?stageCreator:''}${pipelineViewMode==='analysis'?renderPipelineAnalysis(deals,stages):board}`;
   };
@@ -1727,6 +1793,12 @@
   function ownerOptions() { return (state.users||[]).filter(u=>Number(u.is_active)!==0 && u.role!=='admin').map(u=>({value:u.id,label:u.name})); }
   function contactsOptions() { return (state.contacts||[]).map(c=>({value:c.id,label:c.name+(c.company?' — '+c.company:'')})); }
 
+  function lockedLeadContactMarkup(deal){
+    const id=Number(deal.contact_id),c=(state.contacts||[]).find(x=>Number(x.id)===id);
+    const title=c?.name||deal.contact||'Contato vinculado';
+    const company=c?.company||deal.company||'';
+    return '<div class="locked-lead-contact"><span class="contact-detail-icon">'+ico('users',17)+'</span><div class="locked-contact-name"><strong>'+esc(title)+'</strong><small>'+esc(company&&company!==title?company:'Vínculo permanente')+'</small></div>'+(id?'<button type="button" class="contact-view-button" onclick="openContactView('+id+')">'+ico('eye',15)+' Ver contato</button>':'')+'</div><p class="form-help">O contato é definido na criação do lead. Para vinculá-lo a outro contato, arquive este lead e crie um novo.</p>';
+  }
   function leadContactControl(selected='') {
     const picker=selectMarkup('contact_id',contactsOptions(),selected,'Selecione um contato')
       .replace('<select name="contact_id">','<select name="contact_id" onchange="if(this.value) toggleLeadContactForm(false)">');
@@ -1804,12 +1876,12 @@
     const ownerSelected=item?.owner_id || item?.assigned_to || '';
     const ownerList=ownerOptions();
     const ownerControl=selectMarkup('owner_id',ownerList,ownerSelected,ownerList.length?'Selecione o responsável':'Cadastre responsáveis em Configurações');
-    const contactControl=type==='deal'?leadContactControl(item?.contact_id||''):selectMarkup('contact_id',contactsOptions(),item?.contact_id||'','Selecione um contato');
+    const contactControl=type==='deal'?(item?lockedLeadContactMarkup(item):leadContactControl('')):selectMarkup('contact_id',contactsOptions(),item?.contact_id||'','Selecione um contato');
     if(type==='contact') {
       title=item?'Editar contato':'Novo contato'; subtitle='Os dados serão gravados no banco Supabase.';
       fields=`<div class="form-grid">${formField('Nome completo *','name',inputMarkup('name',item?.name||'','text','Nome do contato'))}${formField('Empresa','company',inputMarkup('company',item?.company||'','text','Empresa'))}${formField('E-mail','email',inputMarkup('email',item?.email||'','email','nome@empresa.com.br'))}${formField('Telefone','phone',inputMarkup('phone',item?.phone||'','tel','Telefone'))}${formField('Status','status',selectMarkup('status',['Novo lead','Qualificado','Em negociação','Cliente','Inativo'].map(x=>({value:x,label:x})),item?.status||'Novo lead'))}${formField('Responsável','owner_id',ownerControl)}${formField('Origem','source',selectMarkup('source',['Site','Indicação','LinkedIn','Evento','Importação','Outro'].map(x=>({value:x,label:x})),item?.source||'','Selecione a origem'))}${formField('Observações','notes',textareaMarkup('notes',item?.notes||'','Observações relevantes'),true)}${customFieldsMarkup('contacts',item?.id)}</div>`;
     } else if(type==='deal') {
-      title=item?'Editar lead':'Adicionar lead'; subtitle='Selecione um contato existente ou crie um novo sem sair deste formulário.';
+      title=item?'Editar lead':'Adicionar lead'; subtitle=item?'Edite os dados do lead e consulte seu contato vinculado.':'Selecione um contato existente ou crie um novo sem sair deste formulário.';
       const pipelineId=item?.pipeline_id || state.pipelines?.find(p=>Number(p.is_default)===1)?.id || state.pipelines?.[0]?.id || '';
       const stageOptions=(state.pipelineStages||[]).filter(s=>!pipelineId||Number(s.pipeline_id)===Number(pipelineId)).map(s=>({value:s.id,label:s.name}));
       // A etapa é selecionável no formulário de criação/edição; não há seletor duplicado dentro do card.
@@ -1817,7 +1889,7 @@
       const selectedStage=item?.stage_id || stageFromCaller?.value || stageOptions.find(s=>!((state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_won || (state.pipelineStages||[]).find(st=>Number(st.id)===Number(s.value))?.is_lost))?.value || stageOptions[0]?.value || '';
       const retainedValue = item ? (item.value ?? 0) : 0;
       const retainedClose = item ? (item.close || item.expected_close_date || '') : '';
-      fields=`<div class="form-grid">${formField('Nome do lead *','title',inputMarkup('title',item?.title||'','text','Ex.: Festa de aniversário - João'))}${formField('Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<section class="lead-history field-full"><div class="lead-history-heading">${ico('clock',17)} <strong>Histórico do lead</strong></div><div class="lead-history-list" id="dealHistoryList">${item?historyListMarkup(item):'<p class="card-sub">O histórico será criado junto com o lead.</p>'}</div><div class="lead-history-compose"><label for="newHistoryDate">Data da ocorrência</label><input id="newHistoryDate" name="history_date" type="date" max="${localDateIso()}" value="${localDateIso()}"><label for="newHistoryType">Tipo de atualização</label><select id="newHistoryType" name="history_type"><option value="note">Observação</option><option value="call">Ligação</option><option value="email">E-mail</option><option value="meeting">Reunião</option></select><label for="newHistoryNote">O que aconteceu?</label><textarea id="newHistoryNote" name="history_note" maxlength="20000" placeholder="Registre evolução, retorno ou próxima ação..."></textarea><small>Ao salvar o card, a atualização será acrescentada ao histórico, sem substituir as anteriores.</small></div></section><div id="dealValueField" class="form-field field-full"><label for="dealValueInput">Valor da negociação (R$) *</label><input id="dealValueInput" name="value" type="number" min="0.01" max="9999999999.99" step="0.01" value="${Number(retainedValue)>0?esc(retainedValue):''}" placeholder="Ex.: 2500,00"><div class="form-help">O valor poderá ser alterado sempre que você editar este card.</div></div><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Sua base ainda está vazia? Clique em “Criar contato novo” acima para cadastrar o contato diretamente aqui.</p>':''}<p class="form-help">O valor é solicitado ao entrar em Negociação e pode ser alterado na edição do card. Nas demais etapas ele é preservado, mas não exibido no funil.</p>`;
+      fields=`<div class="form-grid">${formField('Nome do lead *','title',inputMarkup('title',item?.title||'','text','Ex.: Festa de aniversário - João'))}${formField(item?'Contato vinculado':'Contato principal *','contact_id',contactControl,true)}${formField('Etapa do funil *','stage_id',selectMarkup('stage_id',stageOptions,selectedStage,'Selecione a etapa'))}${formField('Responsável','owner_id',ownerControl)}${formField('Descrição','description',textareaMarkup('description',item?.description||'','Detalhes da oportunidade'),true)}${formField('Motivo da perda','lost_reason',inputMarkup('lost_reason',item?.lost_reason||'','text','Preencha se perdido'),true)}${customFieldsMarkup('deals',item?.id)}<section class="lead-history field-full"><div class="lead-history-heading">${ico('clock',17)} <strong>Histórico do lead</strong></div><div class="lead-history-list" id="dealHistoryList">${item?historyListMarkup(item):'<p class="card-sub">O histórico será criado junto com o lead.</p>'}</div><div class="lead-history-compose"><label for="newHistoryDate">Data da ocorrência</label><input id="newHistoryDate" name="history_date" type="date" max="${localDateIso()}" value="${localDateIso()}"><label for="newHistoryType">Tipo de atualização</label><select id="newHistoryType" name="history_type"><option value="note">Observação</option><option value="call">Ligação</option><option value="email">E-mail</option><option value="meeting">Reunião</option></select><label for="newHistoryNote">O que aconteceu?</label><textarea id="newHistoryNote" name="history_note" maxlength="20000" placeholder="Registre evolução, retorno ou próxima ação..."></textarea><small>Ao salvar o card, a atualização será acrescentada ao histórico, sem substituir as anteriores.</small></div></section><div id="dealValueField" class="form-field field-full"><label for="dealValueInput">Valor da negociação (R$) *</label><input id="dealValueInput" name="value" type="number" min="0.01" max="9999999999.99" step="0.01" value="${Number(retainedValue)>0?esc(retainedValue):''}" placeholder="Ex.: 2500,00"><div class="form-help">O valor poderá ser alterado sempre que você editar este card.</div></div><input type="hidden" name="expected_close_date" value="${esc(retainedClose)}"></div>${!state.contacts.length?'<p class="form-help">Sua base ainda está vazia? Clique em “Criar contato novo” acima para cadastrar o contato diretamente aqui.</p>':''}<p class="form-help">O valor é solicitado ao entrar em Negociação e pode ser alterado na edição do card. Nas demais etapas ele é preservado, mas não exibido no funil.</p>`;
     } else if(type==='task') {
       title=item?'Editar tarefa':'Nova tarefa'; subtitle='Defina o próximo passo e salve para a equipe.';
       const statusOpts=['Pendente','Em andamento','Concluída','Cancelada'].map(x=>({value:x,label:x}));
@@ -1858,8 +1930,10 @@
         const selectedStage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(d.stage_id));
         if(!pipelineId||!selectedStage) throw new Error('O funil de vendas não está configurado. Confira as etapas do banco.');
 
-        let contactId=Number(d.contact_id)||null;
-        if(!contactId && d.new_contact_name?.trim()) {
+        const lockedDeal=editingId?(state.deals||[]).find(x=>Number(x.id)===Number(editingId)):null;
+        if(editingId&&!lockedDeal)throw new Error('Lead não encontrado.');
+        let contactId=lockedDeal?Number(lockedDeal.contact_id):Number(d.contact_id)||null;
+        if(!editingId&&!contactId && d.new_contact_name?.trim()) {
           const newContact=await api('contacts','POST',{
             name:d.new_contact_name.trim(),
             company_name:d.new_contact_company||null,
@@ -2279,6 +2353,7 @@
   window.render = function() {
     const target = document.getElementById('mainContent');
     if (!target) return;
+    window.closeStageOptions?.();
     const pages = {
       dashboard: window.dashboard,
       contacts: window.contactsPage,
