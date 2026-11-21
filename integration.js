@@ -1924,6 +1924,101 @@
     catch(e){showToast(e.message||'Não foi possível atualizar a tarefa.');}
   };
 
+  const importLeadHeaders=['Nome do lead','Empresa','Nome do contato','Telefone','E-mail','Etapa','Responsável','Valor (R$)','Origem','Descrição','Data do histórico','Histórico'];
+  const importHeaderKeys=['lead','company','contact','phone','email','stage','owner','value','source','description','history_date','history'];
+  let importPreviewRows=[],importPreviewIssues=[],importFilename='',importResultRows=[],importBusy=false;
+  function importNormalize(v){return String(v??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');}
+  function leadImportSettingsMarkup(){
+    return '<h3 class="settings-section-title">Importação em lote de leads</h3><p class="settings-section-desc">Inclua contatos e cards no mesmo envio, com prévia, validação e proteção contra duplicados.</p><div class="import-steps"><div><b>01</b><strong>Baixe o modelo</strong><p>Use as colunas exatamente como no arquivo.</p><button type="button" class="btn primary" onclick="downloadLeadTemplate(true)">'+ico('download',15)+' Modelo Excel</button> <button type="button" class="btn ghost" onclick="downloadLeadTemplate(false)">'+ico('download',15)+' CSV</button></div><div><b>02</b><strong>Preencha os leads</strong><p>Nome do lead obrigatório. Etapa padrão: Prospecção. Contato, e-mail e responsável são opcionais. Valor obrigatório em Negociação ou Fechado.</p></div><div><b>03</b><strong>Envie a planilha</strong><p>Arquivos .xlsx ou .csv, até 500 linhas por envio.</p><input id="leadImportFile" type="file" accept=".xlsx,.csv" onchange="previewLeadImport(this)" hidden><button class="btn ghost" type="button" onclick="document.getElementById(\'leadImportFile\').click()">'+ico('plus',15)+' Selecionar planilha</button></div></div><div class="import-fields"><strong>Colunas do modelo</strong><div>'+importLeadHeaders.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div><p>Use os nomes das etapas e responsáveis cadastrados. Data do histórico: AAAA-MM-DD, DD/MM/AAAA ou data do Excel. A primeira linha deve conter os títulos.</p></div><div id="leadImportPreview">'+leadImportPreviewMarkup()+'</div>';
+  }
+  window.downloadLeadTemplate=function(asExcel){
+    if(asExcel&&window.XLSX){
+      const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet([importLeadHeaders]);
+      ws['!cols']=[{wch:32},{wch:28},{wch:24},{wch:22},{wch:36},{wch:20},{wch:20},{wch:16},{wch:22},{wch:55},{wch:22},{wch:65}];
+      XLSX.utils.book_append_sheet(wb,ws,'Leads');
+      const guide=XLSX.utils.aoa_to_sheet([['CAMPO','ORIENTAÇÃO'],['Nome do lead','Obrigatório; nome único no funil'],['Empresa','Opcional; se vazio, usa nome do lead'],['Nome do contato','Opcional'],['Telefone','Formate como texto para manter zeros'],['Etapa','Prospecção, Qualificação, Proposta, Negociação, Fechado ou Perdido (ou outra coluna existente)'],['Responsável','Nome exatamente como cadastrado'],['Valor (R$)','Número positivo obrigatório em Negociação ou Fechado'],['Data do histórico','AAAA-MM-DD; se vazio, usa data do registro'],['Histórico','Anotação inicial, sem apagar descrições existentes']]);guide['!cols']=[{wch:25},{wch:88}];
+      XLSX.utils.book_append_sheet(wb,guide,'Instruções');XLSX.writeFile(wb,'CIRANDAE_modelo_leads.xlsx');return;
+    }
+    if(asExcel&&!window.XLSX)showToast('Excel indisponível no momento. Baixando o modelo CSV compatível.');
+    const blob=new Blob(['\uFEFF'+importLeadHeaders.join(';')+'\r\n'],{type:'text/csv;charset=utf-8'}),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='CIRANDAE_modelo_leads.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  };
+  function parseLeadCSV(raw){
+    raw=String(raw).replace(/^\uFEFF/,'');
+    const first=raw.split(/\r?\n/,1)[0],delimiter=first.includes(';')?';':',',rows=[];let row=[],cell='',quote=false;
+    for(let i=0;i<raw.length;i++){const c=raw[i];if(c==='"'){if(quote&&raw[i+1]==='"'){cell+='"';i++;}else quote=!quote;}else if(!quote&&c===delimiter){row.push(cell);cell='';}else if(!quote&&(c==='\n'||c==='\r')){if(c==='\r'&&raw[i+1]==='\n')i++;row.push(cell);rows.push(row);row=[];cell='';}else cell+=c;}
+    if(quote)throw new Error('Aspas não fechadas no CSV. Confira o arquivo.');
+    if(row.length||cell){row.push(cell);rows.push(row);}
+    return rows;
+  }
+  function importDate(v){
+    if(v instanceof Date&&!Number.isNaN(v.getTime()))return v.getFullYear()+'-'+String(v.getMonth()+1).padStart(2,'0')+'-'+String(v.getDate()).padStart(2,'0');
+    if(typeof v==='number'&&window.XLSX){const d=XLSX.SSF.parse_date_code(v);if(d)return d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0');}
+    const x=String(v??'').trim(),m=x.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);return m?m[3]+'-'+m[2].padStart(2,'0')+'-'+m[1].padStart(2,'0'):x;
+  }
+  function validImportDate(v){const d=analyticsDate(v);return /^\d{4}-\d{2}-\d{2}$/.test(v)&&d&&d.getFullYear()===Number(v.slice(0,4))&&d.getMonth()+1===Number(v.slice(5,7))&&d.getDate()===Number(v.slice(8,10));}
+  function importAmount(v){if(v===null||v===undefined||String(v).trim()==='')return '';if(typeof v==='number')return Number.isFinite(v)&&v>=0?v:null;const x=String(v).trim().replace(/^R\$\s*/i,'');if(x==='0'||x==='0,00'||x==='0.00')return 0;return parseDealAmount(x);}
+  function leadImportPreviewMarkup(){
+    if(importResultRows.length){const created=importResultRows.filter(x=>x.status==='created').length,dupes=importResultRows.filter(x=>x.status==='duplicate').length,errors=importResultRows.filter(x=>x.status==='error');return '<div class="import-result"><strong>'+created+' criado(s) · '+dupes+' duplicado(s) ignorado(s) · '+errors.length+' erro(s) no banco</strong>'+errors.map(x=>'<p>Linha '+esc(x.row)+': '+esc(x.lead)+' — '+esc(x.message)+'</p>').join('')+importPreviewIssues.map(x=>'<p class="import-issue">'+esc(x)+'</p>').join('')+'</div>';}
+    if(!importFilename)return '<p class="card-sub">Nenhuma planilha selecionada.</p>';
+    return '<div class="import-result"><strong>'+esc(importFilename)+'</strong><p>'+importPreviewRows.length+' linha(s) válida(s) · '+importPreviewIssues.length+' pendência(s)/duplicidade(s)</p>'+importPreviewIssues.map(x=>'<p class="import-issue">'+esc(x)+'</p>').join('')+(importPreviewRows.length?'<div class="table-scroll"><table class="analytics-table"><thead><tr><th>Lead</th><th>Contato</th><th>Etapa</th><th>Responsável</th></tr></thead><tbody>'+importPreviewRows.map(r=>'<tr><td>'+esc(r.lead)+'</td><td>'+esc(r.contact||'—')+'</td><td>'+esc(r.stage)+'</td><td>'+esc(r.owner||'—')+'</td></tr>').join('')+'</tbody></table></div><button class="btn primary" type="button" onclick="commitLeadImport()" '+(importBusy?'disabled':'')+'>Confirmar importação de '+importPreviewRows.length+' leads</button>':'<p>Nenhuma linha válida para importar.</p>')+'</div>';
+  }
+  function refreshImportPreview(){const target=document.getElementById('leadImportPreview');if(target)target.innerHTML=leadImportPreviewMarkup();}
+  window.previewLeadImport=async function(input){
+    if(importBusy)return;
+    const file=input.files?.[0];if(!file)return;
+    importPreviewRows=[];importPreviewIssues=[];importResultRows=[];importFilename=file.name;
+    try{
+      if(file.size>5*1024*1024)throw new Error('O arquivo deve ter até 5 MB.');
+      let table;
+      if(/\.xlsx$/i.test(file.name)){
+        if(!window.XLSX)throw new Error('Leitor de Excel indisponível. Salve como CSV e tente novamente.');
+        const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true,sheetRows:502});
+        const ws=wb.Sheets[wb.SheetNames.includes('Leads')?'Leads':wb.SheetNames[0]];
+        if(!ws)throw new Error('Nenhuma aba encontrada na planilha.');
+        table=XLSX.utils.sheet_to_json(ws,{header:1,defval:'',raw:true,blankrows:true});
+      }else if(/\.csv$/i.test(file.name))table=parseLeadCSV(await file.text());
+      else throw new Error('Envie um arquivo .xlsx ou .csv.');
+      if(!table.length)throw new Error('Planilha vazia.');
+      const headers=table[0].map(importNormalize),col=importLeadHeaders.map(x=>headers.indexOf(importNormalize(x)));
+      if(col[0]<0)throw new Error('Coluna “Nome do lead” ausente. Use o modelo das configurações.');
+      const data=table.slice(1).map((r,i)=>({r,line:i+2})).filter(x=>x.r.some(v=>String(v??'').trim()));
+      if(data.length>500||table.length>501)throw new Error('Limite de 500 linhas por envio.');
+      const pipeline=state.pipelines?.find(x=>x.is_default)||state.pipelines?.[0],stages=(state.pipelineStages||[]).filter(x=>Number(x.pipeline_id)===Number(pipeline?.id)),defaultStage=stages.find(x=>importNormalize(x.name)==='prospeccao')||stages[0];
+      if(!defaultStage)throw new Error('Nenhum funil configurado.');
+      const seen=new Set((state.deals||[]).filter(x=>Number(x.pipeline_id)===Number(pipeline.id)).map(x=>importNormalize(x.title)));
+      const owners=(state.users||[]).filter(u=>Number(u.is_active)!==0&&u.role!=='admin');
+      data.forEach(({r:row,line})=>{
+        const r={row:line};importHeaderKeys.forEach((k,j)=>{r[k]=col[j]<0?'':row[col[j]]??'';});
+        r.history_date=importDate(r.history_date);r.value=importAmount(r.value);for(const k of importHeaderKeys.filter(k=>k!=='value'&&k!=='history_date'))r[k]=String(r[k]??'').trim();
+        let issue='';const key=importNormalize(r.lead);
+        const stage=stages.find(x=>importNormalize(x.name)===importNormalize(r.stage||defaultStage.name)),owner=r.owner?owners.find(x=>importNormalize(x.name)===importNormalize(r.owner)):null;
+        if(!key||r.lead.length>190)issue='Nome do lead ausente ou muito longo';
+        else if(seen.has(key))issue='Duplicado: '+r.lead;
+        else if(!stage)issue='Etapa inválida: '+r.stage;
+        else if(r.owner&&!owner)issue='Responsável não cadastrado: '+r.owner;
+        else if(r.email&&!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r.email))issue='E-mail inválido';
+        else if(r.value===null||r.value>9999999999.99)issue='Valor inválido';
+        else if(stageDisplaysValue(stage)&&!(Number(r.value)>0))issue='Valor positivo obrigatório em '+stage.name;
+        else if(r.history_date&&(!validImportDate(r.history_date)||r.history_date>localDateIso()))issue='Data do histórico inválida ou futura';
+        if(issue){importPreviewIssues.push('Linha '+r.row+': '+issue);return;}
+        r.stage=stage.name;r.owner=owner?.name||'';seen.add(key);importPreviewRows.push(r);
+      });
+      if(!data.length)importPreviewIssues.push('Nenhum lead preenchido. Adicione as linhas abaixo do cabeçalho.');
+    }catch(e){importPreviewIssues=[e.message||'Falha na leitura da planilha'];importPreviewRows=[];}
+    finally{input.value='';refreshImportPreview();}
+  };
+  window.commitLeadImport=async function(){
+    if(importBusy||!importPreviewRows.length)return;
+    if(!confirm('Importar '+importPreviewRows.length+' leads válidos? Linhas com pendências ou duplicadas serão ignoradas.'))return;
+    importBusy=true;refreshImportPreview();
+    try{
+      const result=await sb().rpc('import_crm_leads',{p_rows:importPreviewRows});
+      if(result.error)throw result.error;
+      if(!Array.isArray(result.data))throw new Error('Resposta inesperada do banco. Verifique o funil antes de repetir.');
+      importResultRows=result.data;importPreviewRows=[];await loadRemoteState();render();showToast('Importação concluída. Confira o resultado por linha.');
+    }catch(e){showToast(e.message||'Falha ao importar.');}
+    finally{importBusy=false;refreshImportPreview();}
+  };
   window.importCSV = async function(input) {
     const file=input.files?.[0]; if(!file)return;
     try {
@@ -2005,6 +2100,7 @@
       ['funil','Colunas do funil'],
       ['filtros','Filtros salvos'],
       ['campos','Campos personalizados'],
+      ['importacao','Importar leads'],
       ['dados','Dados e exportação'],
       ['licenca','Sobre o Cirandaê']
     ];
@@ -2055,6 +2151,8 @@
       const stages=(state.pipelineStages||[]).filter(st=>!pipelineId||Number(st.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
       const rows=stages.map((stage,i)=>`<div class="stage-manage-row"><div class="stage-number">${i+1}</div><div><label class="form-help" for="stageName-${stage.id}">Nome da coluna</label><input id="stageName-${stage.id}" maxlength="80" value="${esc(stage.name)}" ${canManage?'':'disabled'}></div><div class="stage-probability-field"><label class="form-help" for="stageProbability-${stage.id}">Probabilidade (%)</label><input id="stageProbability-${stage.id}" type="number" min="0" max="100" value="${Number(stage.probability)||0}" ${canManage?'':'disabled'}></div><div class="stage-type-field"><label class="form-help" for="stageType-${stage.id}">Classificação</label><select id="stageType-${stage.id}" ${canManage?'':'disabled'}><option value="open" ${!stage.is_won&&!stage.is_lost?'selected':''}>Em andamento</option><option value="won" ${stage.is_won?'selected':''}>Fechado</option><option value="lost" ${stage.is_lost?'selected':''}>Perdido</option></select></div>${canManage?`<button class="btn small primary stage-save-button" onclick="savePipelineStage(${stage.id})">Salvar</button><button class="btn small ghost stage-delete-button" onclick="deletePipelineStage(${stage.id})" aria-label="Excluir coluna">Excluir</button>`:'<span></span><span></span>'}</div>`).join('');
       contents=`<h3 class="settings-section-title">Colunas do funil</h3><p class="settings-section-desc">Ajuste as etapas que representam o andamento de um pedido comercial.</p><div class="stage-management-list">${rows||'<div class="empty">Nenhuma etapa cadastrada.</div>'}</div>`;
+    } else if(activeSettings==='importacao') {
+      contents=leadImportSettingsMarkup();
     } else if(activeSettings==='dados') {
       contents=`<h3 class="settings-section-title">Dados e exportação</h3><p class="settings-section-desc">Exporte os registros comerciais para uma cópia externa.</p>
         <div class="toggle-row"><div class="toggle-copy"><strong>Exportar contatos</strong><span>Baixe a lista de contatos em CSV.</span></div>${button('Exportar CSV',"exportCSV('contacts')",false,'download')}</div>
