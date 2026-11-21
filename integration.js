@@ -2351,37 +2351,97 @@
     catch(e){showToast(e.message||'Não foi possível salvar as configurações.');}
   };
   window.setSettingsTab = function(t){activeSettings=t;render();};
-  window.toggleCrmPasswordVisibility=function(button){const field=button.parentElement.querySelector('input');if(!field)return;field.type=field.type==='password'?'text':'password';button.setAttribute('aria-label',field.type==='password'?'Mostrar senha':'Ocultar senha');button.setAttribute('aria-pressed',String(field.type==='text'));};
-  window.changeOwnCrmPassword=async function(event){
-    event.preventDefault();
-    const form=event.currentTarget,btn=form.querySelector('button[type="submit"]'),feedback=form.querySelector('.crm-password-feedback');
+  // Avoid saved-password autofill; only enable each empty input on explicit focus.
+  const crmPasswordVerifiedForms=new WeakMap();
+  window.prepareCrmPasswordInput=function(field){
+    if(field.readOnly){field.value='';field.readOnly=false;}
+  };
+  window.toggleCrmPasswordVisibility=function(button){
+    const field=button.parentElement.querySelector('input');if(!field||field.readOnly||field.disabled)return;
+    field.type=field.type==='password'?'text':'password';button.setAttribute('aria-label',field.type==='password'?'Mostrar senha':'Ocultar senha');button.setAttribute('aria-pressed',String(field.type==='text'));
+  };
+  function crmPasswordFeedback(form,message,success=false){
+    const feedback=form.querySelector('p.crm-password-feedback:not(#crmPasswordVerified)');
+    feedback.hidden=!message;feedback.textContent=message;feedback.classList.toggle('success',success);
+  }
+  function clearCrmNewPasswordFields(form){
+    for(const name of ['new_password','confirm_password']){
+      const field=form.elements.namedItem(name);field.value='';field.type='password';field.readOnly=true;
+    }
+  }
+  window.invalidateCrmPasswordVerification=function(form){
+    crmPasswordVerifiedForms.delete(form);clearCrmNewPasswordFields(form);
+    const step=form.querySelector('#crmNewPasswordStep');step.hidden=true;step.disabled=true;
+    form.querySelector('#crmPasswordVerified').hidden=true;
+    const verify=form.querySelector('#crmVerifyPassword');verify.hidden=false;
+    crmPasswordFeedback(form,'');
+  };
+  async function createCrmPasswordVerifier(password){
+    const active=await sb().auth.getUser(),authUser=active.data?.user;
+    if(active.error||!authUser?.email||authUser.id!==currentUser?.auth_user_id)throw new Error('Sessão inválida. Entre novamente.');
+    const cfg=window.NEXO_SUPABASE_CONFIG;
+    const verifier=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'cirandae-password-verification'}});
+    try{
+      const check=await verifier.auth.signInWithPassword({email:authUser.email,password});
+      if(check.error)throw new Error('Não foi possível validar a senha atual. Confira a senha e tente novamente.');
+      if(check.data?.user?.id!==authUser.id||currentUser?.auth_user_id!==authUser.id)throw new Error('A sessão mudou. Entre novamente.');
+      return {verifier,authId:authUser.id};
+    }catch(e){try{await verifier.auth.signOut({scope:'local'});}catch(_){}throw e;}
+  }
+  window.verifyOwnCrmPassword=async function(form){
+    const btn=form.querySelector('#crmVerifyPassword'),field=form.elements.namedItem('current_password');
     if(btn.disabled||!currentUser)return;
-    const fields=new FormData(form),oldPassword=String(fields.get('current_password')||''),newPassword=String(fields.get('new_password')||''),confirmation=String(fields.get('confirm_password')||'');
-    const report=(message,success=false)=>{feedback.hidden=false;feedback.textContent=message;feedback.classList.toggle('success',success);};
-    if(!oldPassword){report('Informe sua senha atual.');return;}
-    if(newPassword.length<12){report('A nova senha deve ter pelo menos 12 caracteres.');return;}
-    if(newPassword!==confirmation){report('As duas novas senhas não coincidem.');return;}
-    if(newPassword===oldPassword){report('Escolha uma senha diferente da atual.');return;}
-    btn.disabled=true;btn.textContent='Verificando senha...';feedback.hidden=true;
+    if(field.readOnly||!field.value){crmPasswordFeedback(form,'Digite sua senha atual.');field.focus();return;}
+    const password=field.value;
+    window.invalidateCrmPasswordVerification(form);
+    btn.disabled=true;field.readOnly=true;btn.textContent='Validando senha...';
     let verifier=null;
     try{
-      const active=await sb().auth.getUser(),authUser=active.data?.user;
-      if(active.error||!authUser?.email||authUser.id!==currentUser?.auth_user_id)throw new Error('Sessão inválida. Entre novamente.');
-      const cfg=window.NEXO_SUPABASE_CONFIG;
-      verifier=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'cirandae-password-verification'}});
-      const check=await verifier.auth.signInWithPassword({email:authUser.email,password:oldPassword});
-      if(check.error)throw new Error('Não foi possível validar a senha atual. Confira a senha ou tente novamente mais tarde.');
-      if(check.data?.user?.id!==authUser.id||currentUser?.auth_user_id!==authUser.id)throw new Error('A sessão mudou. Entre novamente para continuar.');
-      btn.textContent='Alterando senha...';
+      const auth=await createCrmPasswordVerifier(password);verifier=auth.verifier;
+      if(!form.isConnected||currentUser?.auth_user_id!==auth.authId||field.value!==password)return;
+      crmPasswordVerifiedForms.set(form,{authId:auth.authId,expires:Date.now()+5*60*1000});
+      clearCrmNewPasswordFields(form);
+      const step=form.querySelector('#crmNewPasswordStep');step.hidden=false;step.disabled=false;
+      btn.hidden=true;form.querySelector('#crmPasswordVerified').hidden=false;
+      field.readOnly=false;
+      crmPasswordFeedback(form,'');
+    }catch(e){field.value='';crmPasswordFeedback(form,e.message||'Não foi possível validar a senha.');}
+    finally{
+      if(verifier){try{await verifier.auth.signOut({scope:'local'});}catch(_){}}
+      field.readOnly=false;btn.disabled=false;btn.innerHTML=ico('check',16)+' Validar senha atual';
+    }
+  };
+  window.changeOwnCrmPassword=async function(event){
+    event.preventDefault();
+    const form=event.currentTarget,btn=form.querySelector('button[type="submit"]'),step=form.querySelector('#crmNewPasswordStep');
+    if(btn.disabled||!currentUser)return;
+    const verification=crmPasswordVerifiedForms.get(form);
+    if(step.disabled||!verification||verification.authId!==currentUser.auth_user_id||verification.expires<=Date.now()){
+      window.invalidateCrmPasswordVerification(form);crmPasswordFeedback(form,'Valide sua senha atual antes de escolher a nova senha.');return;
+    }
+    const field=form.elements.namedItem('current_password'),newField=form.elements.namedItem('new_password'),confirmField=form.elements.namedItem('confirm_password');
+    const oldPassword=field.value,newPassword=newField.value,confirmation=confirmField.value;
+    if(!oldPassword||newField.readOnly||confirmField.readOnly){crmPasswordFeedback(form,'Preencha os três campos manualmente.');return;}
+    if(newPassword.length<12){crmPasswordFeedback(form,'A nova senha deve ter pelo menos 12 caracteres.');return;}
+    if(newPassword!==confirmation){crmPasswordFeedback(form,'As duas novas senhas não coincidem.');return;}
+    if(newPassword===oldPassword){crmPasswordFeedback(form,'Escolha uma senha diferente da atual.');return;}
+    btn.disabled=true;field.readOnly=true;btn.textContent='Alterando senha...';crmPasswordFeedback(form,'');
+    let verifier=null;
+    try{
+      const auth=await createCrmPasswordVerifier(oldPassword);verifier=auth.verifier;
+      if(!form.isConnected||auth.authId!==verification.authId||currentUser?.auth_user_id!==auth.authId)throw new Error('A sessão mudou. Entre novamente.');
       const updated=await verifier.auth.updateUser({password:newPassword});
       if(updated.error)throw new Error(updated.error.message||'Não foi possível alterar a senha.');
-      form.reset();report('Senha alterada com sucesso. Use a nova senha no próximo acesso.',true);showToast('Sua senha foi alterada.');
-    }catch(e){report(e.message||'Não foi possível alterar sua senha.');}
+      form.reset();field.value='';field.type='password';field.readOnly=true;
+      window.invalidateCrmPasswordVerification(form);
+      crmPasswordFeedback(form,'Senha alterada com sucesso. Use a nova senha no próximo acesso.',true);showToast('Sua senha foi alterada.');
+    }catch(e){window.invalidateCrmPasswordVerification(form);field.value='';field.readOnly=true;crmPasswordFeedback(form,e.message||'Não foi possível alterar sua senha.');}
     finally{
-      if(verifier){try{await verifier.auth.signOut({scope:'local'});}catch(e){}}
+      if(verifier){try{await verifier.auth.signOut({scope:'local'});}catch(_){}}
       btn.disabled=false;btn.innerHTML=ico('check',16)+' Alterar senha';
     }
   };
+
   window.savePipelineStage = async function(id) {
     if(currentUser?.role!=='admin'){showToast('Somente o administrador pode editar colunas.');return;}
     const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(id));
@@ -2460,7 +2520,7 @@
         ${button('Salvar minha aparência','saveNexoAppearance()',true,'check')}
       `;
     } else if(activeSettings==='senha') {
-      contents='<h3 class="settings-section-title">Alterar minha senha</h3><p class="settings-section-desc">Confirme sua senha atual e escolha uma nova senha. A alteração vale somente para sua conta.</p><div class="crm-password-panel"><div class="crm-password-symbol">'+ico('shield',24)+'</div><form id="crmPasswordForm" autocomplete="off" onsubmit="changeOwnCrmPassword(event)"><div class="form-field"><label for="crmCurrentPassword">Senha atual</label><div class="crm-password-input"><input id="crmCurrentPassword" name="current_password" type="password" autocomplete="current-password" required><button type="button" class="icon-button" aria-label="Mostrar senha atual" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div></div><div class="form-field"><label for="crmNewPassword">Nova senha</label><div class="crm-password-input"><input id="crmNewPassword" name="new_password" type="password" autocomplete="new-password" minlength="12" required><button type="button" class="icon-button" aria-label="Mostrar nova senha" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div><p class="form-help">Use pelo menos 12 caracteres.</p></div><div class="form-field"><label for="crmConfirmPassword">Confirmar nova senha</label><div class="crm-password-input"><input id="crmConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><button type="button" class="icon-button" aria-label="Mostrar confirmação" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div></div><p class="crm-password-feedback" role="status" aria-live="polite" hidden></p><button class="btn primary" type="submit">'+ico('check',16)+' Alterar senha</button></form></div>';
+      contents='<h3 class="settings-section-title">Alterar minha senha</h3><p class="settings-section-desc">Primeiro valide sua senha atual. Depois, digite a nova senha duas vezes.</p><div class="crm-password-panel"><div class="crm-password-symbol">'+ico('shield',24)+'</div><form id="crmPasswordForm" autocomplete="off" onsubmit="changeOwnCrmPassword(event)"><div class="crm-password-step"><span class="crm-password-step-number">1</span><strong>Confirmar sua identidade</strong></div><div class="form-field"><label for="crmCurrentPassword">Senha atual</label><div class="crm-password-input"><input id="crmCurrentPassword" name="current_password" type="password" value="" autocomplete="off" readonly onfocus="prepareCrmPasswordInput(this)" oninput="invalidateCrmPasswordVerification(this.form)" required placeholder="Digite a senha atual"><button type="button" class="icon-button" aria-label="Mostrar senha atual" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div></div><button id="crmVerifyPassword" type="button" class="btn primary" onclick="verifyOwnCrmPassword(this.form)">'+ico('check',16)+' Validar senha atual</button><p id="crmPasswordVerified" class="crm-password-feedback success" role="status" hidden>Senha atual validada.</p><fieldset id="crmNewPasswordStep" hidden disabled><div class="crm-password-step"><span class="crm-password-step-number">2</span><strong>Escolher a nova senha</strong></div><div class="form-field"><label for="crmNewPassword">Nova senha</label><div class="crm-password-input"><input id="crmNewPassword" name="new_password" type="password" value="" autocomplete="new-password" readonly onfocus="prepareCrmPasswordInput(this)" minlength="12" required placeholder="Digite a nova senha"><button type="button" class="icon-button" aria-label="Mostrar nova senha" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div><p class="form-help">Use pelo menos 12 caracteres.</p></div><div class="form-field"><label for="crmConfirmPassword">Confirmar nova senha</label><div class="crm-password-input"><input id="crmConfirmPassword" name="confirm_password" type="password" value="" autocomplete="new-password" readonly onfocus="prepareCrmPasswordInput(this)" minlength="12" required placeholder="Repita a nova senha"><button type="button" class="icon-button" aria-label="Mostrar confirmação" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div></div><button class="btn primary" type="submit">'+ico('check',16)+' Alterar senha</button></fieldset><p class="crm-password-feedback" role="status" aria-live="polite" hidden></p></form></div>';
     } else if(activeSettings==='filtros') {
       const views=(state.savedViews||[]).filter(v=>['contacts','deals'].includes(v.entity_type)).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
       const viewRows=views.map(v=>`<div class="custom-field-row"><div><strong>${esc(v.name)}</strong><small>${v.entity_type==='contacts'?'Contatos':'Oportunidades'} · ${v.is_shared?'Compartilhado':'Pessoal'}</small></div><button class="btn small ghost" onclick="applySavedView('${Number(v.id)}')">Abrir filtro</button><div class="custom-field-row-actions"><button class="btn small ghost" onclick="deleteSavedView(${Number(v.id)})">Excluir</button></div></div>`).join('');
