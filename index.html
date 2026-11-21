@@ -842,6 +842,81 @@ body .locked-lead-contact .lead-contact-view-button svg{flex:none}
 body .locked-lead-contact .locked-contact-name{min-width:120px}
 @media(max-width:390px){body .locked-lead-contact .lead-contact-view-button{width:100%}}
 
+
+/* CRM 1.9.0 — escala individual e assinatura visual dinâmica */
+:root{--crm-view-scale:.8;--crm-effective-scale:1;--crm-glow:#729fcb;--crm-chart-accent:color-mix(in srgb,var(--accent) 65%,#6698c8)}
+@supports (zoom: .8){
+  @media(min-width:761px){
+    :root{--crm-effective-scale:var(--crm-view-scale);zoom:var(--crm-effective-scale)}
+  }
+}
+.app{min-height:calc(100dvh / var(--crm-effective-scale))}
+.sidebar{height:calc(100dvh / var(--crm-effective-scale))}
+.modal,.contact-view-dialog{max-height:calc(90dvh / var(--crm-effective-scale))}
+.nexo-release-dialog{max-height:min(calc(82dvh / var(--crm-effective-scale)),760px)}
+@media(min-width:761px){
+  .main-inner{max-width:1960px}
+  .pipeline-board.board-compact .stage-column{height:clamp(370px,calc(100dvh / var(--crm-effective-scale) - 252px),900px)}
+}
+.crm-scale-setting{max-width:360px;margin:14px 0 18px}
+.crm-scale-setting .form-help{margin-top:5px}
+body{--crm-halo-opacity:20%;--crm-halo-edge:33%;--crm-halo-soft:7%;--crm-chart-accent:color-mix(in srgb,var(--crm-glow) 82%,#a8b8d5)}
+body[data-theme="light"]{--crm-halo-opacity:12%;--crm-halo-edge:23%;--crm-halo-soft:5%;--crm-chart-accent:color-mix(in srgb,var(--accent) 78%,#6682a5)}
+/* Brilhos estáticos e localizados, sem pulsação nem animação contínua. */
+body .crm-glow-panel{
+  position:relative;isolation:isolate;overflow:hidden;
+  background-image:radial-gradient(ellipse at 98% 0%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-opacity),transparent) 0%,transparent 64%);
+  border-color:color-mix(in srgb,var(--accent) 22%,var(--line2));
+}
+body .crm-glow-panel:before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+  background:radial-gradient(ellipse 230px 160px at calc(100% + 40px) -20px,transparent 68%,color-mix(in srgb,var(--crm-glow) 10%,transparent) 69%,transparent 70%,transparent 82%,color-mix(in srgb,var(--crm-glow) 13%,transparent) 83%,transparent 84%);
+}
+body .crm-dashboard-summary{min-height:178px;background-image:radial-gradient(ellipse at 93% -4%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-edge),transparent) 0%,transparent 67%)}
+body .crm-dashboard-summary .card-title{color:var(--text)}
+body .crm-dashboard-summary .card-title:before{content:"";display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--crm-glow);box-shadow:0 0 14px color-mix(in srgb,var(--crm-glow) 55%,transparent);vertical-align:1px}
+body .crm-dashboard-funnel .pipeline-fill{background:linear-gradient(90deg,color-mix(in srgb,var(--accent) 66%,var(--panel2)),var(--crm-chart-accent));box-shadow:0 0 10px color-mix(in srgb,var(--crm-glow) 23%,transparent)}
+body[data-crm-page="dashboard"] .stats>.stat-card:nth-child(2),body[data-crm-page="reports"] .analytics-kpis>.stat-card:nth-child(1){
+  background-image:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-opacity),transparent) 0%,transparent 72%);
+  border-color:color-mix(in srgb,var(--accent) 30%,var(--line2))
+}
+body .pipeline-open-total{
+  background-image:radial-gradient(ellipse at 94% 50%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-opacity),transparent) 0%,transparent 58%);
+  border-color:color-mix(in srgb,var(--accent) 26%,var(--line2))
+}
+body .pipeline-board .stage-head{
+  background-image:linear-gradient(120deg,color-mix(in srgb,var(--crm-glow) 12%,transparent),transparent 76%);
+}
+body .pipeline-board .stage-column:not(.stage-won):not(.stage-lost){border-top-color:color-mix(in srgb,var(--crm-glow) 70%,var(--line2))}
+body .pipeline-board .crm-lead-card:hover,body .pipeline-board .crm-lead-card.search-hit{
+  border-color:color-mix(in srgb,var(--crm-glow) 64%,var(--line2));
+  background-image:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-soft),transparent),transparent 68%)!important;
+  box-shadow:0 3px 12px color-mix(in srgb,var(--crm-glow) 12%,transparent)
+}
+body .pipeline-board .stage-cards:focus-within{scrollbar-color:var(--crm-glow) transparent}
+body .pipeline-channel-toggle button.active,body .board-layout-switch button.active{
+  background-image:linear-gradient(135deg,color-mix(in srgb,var(--crm-glow) 20%,transparent),transparent 92%);
+  border-color:color-mix(in srgb,var(--crm-glow) 40%,var(--line2));box-shadow:inset 0 1px 0 color-mix(in srgb,var(--crm-glow) 16%,transparent)
+}
+body .nav-item.active:not([data-page="whatsapp"]){
+  background-image:linear-gradient(120deg,color-mix(in srgb,var(--crm-glow) 22%,transparent),transparent 88%)!important;
+  box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--crm-glow) 23%,transparent),inset 3px 0 0 var(--crm-glow)
+}
+body .nav-item.active:not([data-page="whatsapp"]) svg{filter:drop-shadow(0 0 5px color-mix(in srgb,var(--crm-glow) 24%,transparent))}
+body .report-month-track i,body .report-bar-track i{background-color:var(--crm-chart-accent)}
+body .report-month-track i{background-image:linear-gradient(0deg,color-mix(in srgb,var(--accent) 55%,var(--panel2)),var(--crm-chart-accent))}
+body .contact-view-top,body .locked-lead-contact,body .appearance-preview{
+  background-image:radial-gradient(ellipse at 98% 0%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-opacity),transparent),transparent 68%);
+}
+body .negotiation-dialog{
+  background-image:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-edge),transparent),transparent 56%);
+  border-color:color-mix(in srgb,var(--crm-glow) 28%,var(--line2))
+}
+body .negotiation-icon,body .appearance-preview-mark{box-shadow:0 0 24px color-mix(in srgb,var(--crm-glow) 14%,transparent)}
+body .import-steps>div:first-child{background-image:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) var(--crm-halo-opacity),transparent),transparent 66%)}
+body :is(button,input,select,textarea):focus-visible{outline-color:var(--crm-glow)}
+@media(prefers-reduced-motion:reduce){body .crm-lead-card{transition:none!important}}
+
 </style>
 </head>
 <body>
@@ -1039,6 +1114,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.8.6-cards-236px-20261121"></script>
+<script src="integration.js?v=1.9.0-escala-e-brilhos-20261121"></script>
 </body>
 </html>
