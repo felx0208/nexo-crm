@@ -658,10 +658,10 @@ body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,va
 .board-layout-switch{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line2);background:var(--panel2);border-radius:9px}
 .board-layout-switch button{display:flex;align-items:center;gap:5px;padding:6px 9px;font:inherit;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;white-space:nowrap}
 .board-layout-switch button.active{background:var(--crm-tint);color:var(--crm-accent-ink);border-color:color-mix(in srgb,var(--accent) 35%,var(--line));font-weight:700}
-.pipeline-board.board-compact{grid-template-columns:none!important;grid-auto-columns:170px!important;gap:8px!important;align-items:stretch;overflow-x:auto;overflow-y:hidden}
+.pipeline-board.board-compact{grid-template-columns:none!important;grid-auto-columns:184px!important;gap:8px!important;align-items:stretch;overflow-x:auto;overflow-y:hidden}
 .pipeline-board.board-classic{grid-template-columns:none!important;grid-auto-columns:198px!important;align-items:start;overflow-x:auto}
 .pipeline-board.board-compact .stage-column,.pipeline-board.board-classic .stage-column{min-width:0;max-width:none;display:flex;flex-direction:column;border:1px solid var(--line2);border-top:3px solid color-mix(in srgb,var(--accent) 65%,var(--line2));border-radius:11px;box-sizing:border-box;background:var(--panel2);overflow:visible}
-.pipeline-board.board-compact .stage-column{height:clamp(320px,calc(100vh - 258px),620px);min-height:320px}
+.pipeline-board.board-compact .stage-column{height:clamp(370px,calc(100dvh - 220px),730px);min-height:370px}
 .pipeline-board.board-classic .stage-column{height:auto;min-height:170px}
 .pipeline-board .stage-column.stage-won{border-top-color:#429e80}
 .pipeline-board .stage-column.stage-lost{border-top-color:#b86d79}
@@ -735,9 +735,24 @@ body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,va
 .contact-linked-lead>strong{overflow-wrap:anywhere;min-width:0}
 .contact-linked-lead>span{color:var(--crm-accent-ink);white-space:nowrap;flex:none;font-size:10px}
 .contact-view-footer{display:flex;justify-content:flex-end;padding:12px 19px;border-top:1px solid var(--line)}
-@media(max-width:760px){.pipeline-board.board-compact{grid-auto-columns:164px!important}.pipeline-board.board-compact .stage-column{height:clamp(300px,calc(100dvh - 225px),550px);min-height:300px}.board-layout-toolbar>small{flex-basis:100%}}
+@media(max-width:760px){.pipeline-board.board-compact{grid-auto-columns:176px!important}.pipeline-board.board-compact .stage-column{height:clamp(340px,calc(100dvh - 195px),650px);min-height:340px}.board-layout-toolbar>small{flex-basis:100%}}
 @media(max-width:390px){.contact-detail-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.pipeline-board .crm-lead-card{transition:none!important}.pipeline-board .crm-lead-card:hover{transform:none!important}}
+
+
+/* CRM 1.8.1 — filtros por canal e rodapé compacto */
+.pipeline-channel-toggle{display:flex;flex-wrap:wrap;gap:3px}
+.pipeline-channel-toggle button{display:inline-flex;align-items:center;justify-content:center;gap:5px;white-space:nowrap}
+.pipeline-channel-toggle button span[data-channel-count]{font-size:10px;line-height:1.2;font-weight:650;padding:2px 4px;margin:0;background:var(--panel);border:1px solid var(--line);border-radius:4px;color:var(--text)}
+.pipeline-channel-toggle button.active span[data-channel-count]{background:var(--crm-tint);color:var(--crm-accent-ink)}
+.pipeline-board .crm-lead-card .deal-foot{display:flex;flex-direction:row;align-items:center;justify-content:space-between;gap:4px!important}
+.pipeline-board .crm-lead-card .card-contact-button{display:inline-flex;width:auto;flex:0 0 auto;min-width:0;min-height:23px;margin:0;padding:4px 5px;font-size:9px;gap:4px;border-radius:6px}
+.pipeline-board .crm-lead-card .card-contact-button span{white-space:nowrap}
+.pipeline-board .crm-lead-card .deal-owner{flex:1 1 0;min-width:0}
+.crm-history-line{display:flex;align-items:center;justify-content:space-between;gap:4px;min-width:0}
+.crm-history-line .deal-history-chip{min-width:0}
+.crm-channel-tag{display:inline-flex;align-items:center;justify-content:center;flex:none;width:19px;height:19px;background:var(--crm-tint);color:var(--crm-accent-ink);border-radius:5px}
+.crm-lead-close{text-align:right;font-size:9px;color:var(--muted);margin-top:3px}
 
 </style>
 </head>
@@ -936,6 +951,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.8.0-funil-compacto-contatos-20261121"></script>
+<script src="integration.js?v=1.8.1-filtro-canais-20261121"></script>
 </body>
 </html>
