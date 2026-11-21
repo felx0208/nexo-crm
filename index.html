@@ -1007,6 +1007,19 @@ body .sidebar .crm-support-count{color:var(--crm-accent-ink);border-color:var(--
 @media(max-width:760px){.crm-help-layout{grid-template-columns:1fr}.crm-help-hero,.crm-help-form-panel{padding:18px}.crm-support-ticket-head{padding:12px;gap:8px}.crm-support-notice{top:12px}}
 @media(prefers-reduced-motion:reduce){body .sidebar .nav-item>.crm-nav-symbol{transition:none}}
 
+
+/* CRM 1.11.1 — sem ícone hambúrguer e fluxo de senha em duas etapas */
+.mobile-menu{display:none!important}
+.crm-mobile-navigation{display:none!important}
+@media(max-width:760px){.topbar .crm-mobile-navigation{display:inline-flex!important;flex:none;min-height:34px;padding:7px 12px;font-weight:850}}
+.crm-password-panel fieldset{border:0;padding:0;margin:20px 0 0;min-width:0}
+.crm-password-panel fieldset[hidden],.crm-password-panel [hidden]{display:none!important}
+.crm-password-step{display:flex;align-items:center;gap:9px;margin-bottom:15px}
+.crm-password-step-number{display:grid;place-items:center;width:25px;height:25px;border-radius:9px;color:var(--crm-accent-ink);background:var(--crm-tint);font-weight:900}
+.crm-password-panel input[readonly]{cursor:text}
+.crm-password-panel input::placeholder{opacity:.72}
+.crm-password-panel #crmNewPasswordStep{border-top:1px solid var(--line2);padding-top:17px}
+
 </style>
 </head>
 <body>
@@ -1029,7 +1042,7 @@ body .sidebar .crm-support-count{color:var(--crm-accent-ink);border-color:var(--
       <div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Envie dúvidas e sugestões diretamente à administração.</p><button onclick="navigate('help')">Acessar central ↗</button></div><div class="profile"></div></div>
   </aside>
   <main class="main">
-    <header class="topbar"><button class="top-action mobile-menu" aria-label="Abrir menu" onclick="toggleSidebar(true)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="navigate('help')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button></header>
+    <header class="topbar"><button class="crm-mobile-navigation btn ghost small" type="button" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar(true)">Menu</button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="navigate('help')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button></header>
     <div class="main-inner" id="mainContent"></div>
   </main>
 </div>
@@ -1096,7 +1109,7 @@ function friendlyDate(){return new Intl.DateTimeFormat('pt-BR',{weekday:'long',d
 function statusClass(s){return ['Ganho','Qualificado','Concluída','Novo lead'].includes(s)?'light':s==='Em negociação'||s==='Proposta'||s==='Negociação'?'':'muted'}
 function navLabel(page){return ({dashboard:'Visão geral',contacts:'Contatos',whatsapp:'WhatsApp',pipeline:'Funil de vendas',tasks:'Tarefas',activities:'Atividades',reports:'Gestão e análise',settings:'Configurações'})[page]||'Visão geral'}
 function navigate(page){currentPage=page;document.querySelectorAll('.nav-item').forEach(b=>b.classList.toggle('active',b.dataset.page===page));document.getElementById('breadcrumb').innerHTML=`Workspace <span style="color:#5f666c;margin:0 7px">/</span> <b>${navLabel(page)}</b>`;const sb=document.getElementById('sidebar');if(sb&&window.matchMedia('(min-width: 761px)').matches)sb.classList.add('sidebar-suppress-hover');toggleSidebar(false);render()}
-function toggleSidebar(open){document.getElementById('sidebar').classList.toggle('open',open);document.getElementById('mobileOverlay').classList.toggle('open',open)}
+function toggleSidebar(open){document.getElementById('sidebar')?.classList.toggle('open',open);document.getElementById('mobileOverlay')?.classList.toggle('open',open);document.querySelector('.crm-mobile-navigation')?.setAttribute('aria-expanded',String(!!open))}
 function pageHeader(eyebrow,title,sub,actions=''){return `<div class="page-heading"><div><div class="eyebrow">${eyebrow}</div><h1>${title}</h1><p>${sub}</p></div><div class="heading-actions">${actions}</div></div>`}
 function button(label,action,primary=false,icon=''){return `<button class="btn ${primary?'primary':''}" onclick="${action}">${icon?ico(icon,15):''}${label}</button>`}
 function statsCard(label,value,delta,icon,note){let hasData=state.contacts.length||state.deals.length||state.tasks.length;return `<article class="card stat-card"><div class="stat-top"><span>${label}</span><span class="stat-icon">${ico(icon,17)}</span></div><div class="stat-value">${value}</div><div class="stat-bottom"><span class="stat-note">${hasData?note:'Aguardando seus primeiros registros'}</span></div></article>`}
@@ -1220,6 +1233,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.11.0-central-ajuda-20261121"></script>
+<script src="integration.js?v=1.11.1-menu-senha-20261121"></script>
 </body>
 </html>
