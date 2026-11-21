@@ -661,6 +661,16 @@
     }).join('');
     return '#'+out;
   }
+  function readCrmScale(){
+    try{const v=Number(localStorage.getItem('cirandae-crm-scale'));return [80,90,100,110].includes(v)?v:80;}catch(e){return 80;}
+  }
+  window.setCrmScale=function(value){
+    const n=Number(value),next=[80,90,100,110].includes(n)?n:80;
+    document.documentElement.style.setProperty('--crm-view-scale',String(next/100));
+    try{localStorage.setItem('cirandae-crm-scale',String(next));}catch(e){}
+    const sel=document.getElementById('settingCrmScale');if(sel)sel.value=String(next);
+    window.closeStageOptions?.();
+  };
   function applyAppearance(theme, accent, remember=true) {
     const safeTheme = theme === 'light' ? 'light' : 'dark';
     const safeAccent = cleanHex(accent);
@@ -677,6 +687,7 @@
     const color = safeAccent.slice(1);
     const rgb = [0,2,4].map(i=>parseInt(color.slice(i,i+2),16)).join(',');
     document.documentElement.style.setProperty('--accent-rgb', rgb);
+    document.documentElement.style.setProperty('--crm-glow',mixHexColor(safeAccent,safeTheme==='dark'?'#cfe8ff':'#18364e',safeTheme==='dark'?.72:.88));
 
     // As superfícies usam uma mistura sutil da cor escolhida com bases neutras.
     // A ideia é evitar cinza esverdeado fixo: azul gera cinza azulado, roxo cinza arroxeado, etc.
@@ -703,6 +714,7 @@
     let localTheme='dark',localAccent='#052D60';
     try { localTheme=localStorage.getItem('nexo-crm-theme')||localTheme; const storedAccent=localStorage.getItem('nexo-crm-accent'); localAccent=storedAccent||localAccent; } catch (_) {}
     applyAppearance(companySettings?.theme_mode||localTheme,companySettings?.accent_color||localAccent,false);
+    window.setCrmScale(readCrmScale());
   }
   window.previewNexoAppearance = function() {
     const theme=document.getElementById('settingThemeMode')?.value || 'dark';
@@ -1030,8 +1042,8 @@
     return `${pageHeader(dateLabel.toUpperCase(),'Visão geral',`Bem-vindo ao Cirandaê CRM`,button('Novo contato',"openModal('contact')",true,'plus')+button('Adicionar lead',"openModal('deal')",false,'target'))}
       <div class="stats">${liveStat('Contatos',contacts.length,'users','Registros cadastrados')}${liveStat('Oportunidades abertas',opened.length,'target','Em andamento')}${liveStat('Valor em aberto',money(openValue),'money','Soma das oportunidades abertas')}</div>
       <div class="dashboard-grid">
-        <section class="card"><div class="card-head"><div><div class="card-title">Resumo comercial</div><div class="card-sub">Oportunidades registradas no sistema</div></div></div><div class="chart-wrap">${summary}</div></section>
-        <section class="card"><div class="card-head"><div><div class="card-title">Funil de vendas</div><div class="card-sub">Distribuição por etapa</div></div><button class="icon-button" aria-label="Abrir funil" onclick="navigate('pipeline')">${ico('arrow',16)}</button></div><div class="pipeline-summary">${stageHtml||'<div class="empty">As etapas do funil aparecerão aqui.</div>'}<div class="panel-divider" style="margin-top:19px;padding-top:16px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;color:var(--muted);margin-bottom:5px">Valor em aberto</div><div style="font-size:21px;letter-spacing:-.04em;font-weight:750">${money(openValue)}</div></div>${button('Ver funil',"navigate('pipeline')",false,'arrow')}</div></div></section>
+        <section class="card crm-glow-panel crm-dashboard-summary"><div class="card-head"><div><div class="card-title">Resumo comercial</div><div class="card-sub">Oportunidades registradas no sistema</div></div></div><div class="chart-wrap">${summary}</div></section>
+        <section class="card crm-dashboard-funnel"><div class="card-head"><div><div class="card-title">Funil de vendas</div><div class="card-sub">Distribuição por etapa</div></div><button class="icon-button" aria-label="Abrir funil" onclick="navigate('pipeline')">${ico('arrow',16)}</button></div><div class="pipeline-summary">${stageHtml||'<div class="empty">As etapas do funil aparecerão aqui.</div>'}<div class="panel-divider" style="margin-top:19px;padding-top:16px;display:flex;justify-content:space-between;align-items:center"><div><div style="font-size:10px;color:var(--muted);margin-bottom:5px">Valor em aberto</div><div style="font-size:21px;letter-spacing:-.04em;font-weight:750">${money(openValue)}</div></div>${button('Ver funil',"navigate('pipeline')",false,'arrow')}</div></div></section>
       </div>
       <section class="card table-card"><div class="card-head"><div><div class="card-title">Contatos recentes</div><div class="card-sub">Últimos contatos adicionados</div></div>${button('Ver todos',"navigate('contacts')",false,'arrow')}</div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${recent.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Sua base começa aqui</strong>Cadastre o primeiro contato para organizar os pedidos.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${recent.length}</b> de <b>${contacts.length}</b> contatos</span></div></section>`;
   };
@@ -1540,8 +1552,11 @@
     const el=document.createElement('div');el.id='floatingStageOptions';el.className='floating-stage-options';
     el.innerHTML='<button type="button" onclick="closeStageOptions();editPipelineStageName('+Number(id)+')">'+ico('pencil',16)+'<span>Editar coluna</span></button><button type="button" onclick="closeStageOptions();deletePipelineStage('+Number(id)+')">'+ico('trash-2',16)+'<span>Excluir coluna</span></button>';
     document.body.appendChild(el);const rect=trigger.getBoundingClientRect();
-    el.style.left=Math.max(8,Math.min(rect.right-el.offsetWidth,window.innerWidth-el.offsetWidth-8))+'px';
-    el.style.top=Math.max(8,rect.bottom+el.offsetHeight+10>window.innerHeight?rect.top-el.offsetHeight-6:rect.bottom+6)+'px';
+    const scale=Number.parseFloat(getComputedStyle(document.documentElement).zoom)||1;
+    const viewportWidth=window.innerWidth/scale,viewportHeight=window.innerHeight/scale;
+    const right=rect.right/scale,top=rect.top/scale,bottom=rect.bottom/scale;
+    el.style.left=Math.max(8,Math.min(right-el.offsetWidth,viewportWidth-el.offsetWidth-8))+'px';
+    el.style.top=Math.max(8,bottom+el.offsetHeight+10>viewportHeight?top-el.offsetHeight-6:bottom+6)+'px';
     stageMenuTrigger=trigger;trigger.setAttribute('aria-expanded','true');
   };
   document.addEventListener('click',event=>{if(stageMenuTrigger&&!event.target.closest?.('#floatingStageOptions')&&!stageMenuTrigger.contains(event.target))window.closeStageOptions();});
@@ -1664,13 +1679,13 @@
   function reportVisuals(deals,stages,people,months,open,won,lost){
     const total=deals.length,max=Math.max(1,...stages.map(r=>r.current));
     const a=total?open.length/total*100:0,b=total?(open.length+won.length)/total*100:0;
-    const ring=total?'conic-gradient(#568ec4 0 '+a+'%, #46a484 '+a+'% '+b+'%, #b66c78 '+b+'% 100%)':'conic-gradient(var(--line2) 0 100%)';
-    const stageBars=stages.map((r,i)=>'<div class="report-bar-line"><span>'+esc(r.s.name)+'</span><div class="report-bar-track"><i style="width:'+r.current/max*100+'%;background:'+(['#7d99bd','#5e8ec2','#507bb2','#28789c','#46a484','#b66c78'][i%6])+'"></i></div><b>'+r.current+'</b></div>').join('');
+    const ring=total?'conic-gradient(var(--crm-chart-accent) 0 '+a+'%, #46a484 '+a+'% '+b+'%, #b66c78 '+b+'% 100%)':'conic-gradient(var(--line2) 0 100%)';
+    const stageBars=stages.map((r,i)=>'<div class="report-bar-line"><span>'+esc(r.s.name)+'</span><div class="report-bar-track"><i style="width:'+r.current/max*100+'%;background:'+(r.s.is_won?'#46a484':r.s.is_lost?'#b66c78':'color-mix(in srgb,var(--crm-chart-accent) '+Math.min(100,65+i*9)+'%,var(--line2))')+'"></i></div><b>'+r.current+'</b></div>').join('');
     const maxMonth=Math.max(1,...months.map(m=>m.value));
     const trend=months.map(m=>'<div class="report-month"><b>'+esc(money(m.value))+'</b><div class="report-month-track"><i style="height:'+(m.value/maxMonth*100)+'%"></i></div><span>'+esc(m.label)+'/'+String(m.y).slice(-2)+'</span></div>').join('');
     const maxPeople=Math.max(1,...people.map(x=>x.won+x.lost+x.open));
     const pp=people.map(x=>'<div class="report-bar-line"><span>'+esc(x.name)+'</span><div class="report-bar-track"><i style="width:'+(x.open+x.won+x.lost)/maxPeople*100+'%"></i></div><b>'+(x.open+x.won+x.lost)+'</b></div>').join('');
-    return '<div class="report-visual-grid"><section class="card report-visual"><h3>Distribuição do funil</h3><p>Quantidade atual por etapa</p>'+stageBars+'</section><section class="card report-visual"><h3>Situação comercial</h3><p>Oportunidades no período</p><div class="report-donut-wrap"><div class="report-donut" style="background:'+ring+'" role="img" aria-label="'+open.length+' abertos, '+won.length+' fechados e '+lost.length+' perdidos"><div><strong>'+total+'</strong><small>LEADS</small></div></div><div class="report-donut-legend"><span><i style="background:#568ec4"></i>Abertos <b>'+open.length+'</b></span><span><i style="background:#46a484"></i>Fechados <b>'+won.length+'</b></span><span><i style="background:#b66c78"></i>Perdidos <b>'+lost.length+'</b></span></div></div></section><section class="card report-visual"><h3>Receita fechada</h3><p>Últimos seis meses com valores registrados</p><div class="report-month-chart">'+trend+'</div></section><section class="card report-visual"><h3>Carteira por responsável</h3><p>Total de leads atribuídos no período</p>'+(pp||'<p>Nenhum lead atribuído.</p>')+'</section></div>';
+    return '<div class="report-visual-grid"><section class="card report-visual crm-glow-panel"><h3>Distribuição do funil</h3><p>Quantidade atual por etapa</p>'+stageBars+'</section><section class="card report-visual"><h3>Situação comercial</h3><p>Oportunidades no período</p><div class="report-donut-wrap"><div class="report-donut" style="background:'+ring+'" role="img" aria-label="'+open.length+' abertos, '+won.length+' fechados e '+lost.length+' perdidos"><div><strong>'+total+'</strong><small>LEADS</small></div></div><div class="report-donut-legend"><span><i style="background:var(--crm-chart-accent)"></i>Abertos <b>'+open.length+'</b></span><span><i style="background:#46a484"></i>Fechados <b>'+won.length+'</b></span><span><i style="background:#b66c78"></i>Perdidos <b>'+lost.length+'</b></span></div></div></section><section class="card report-visual crm-glow-panel"><h3>Receita fechada</h3><p>Últimos seis meses com valores registrados</p><div class="report-month-chart">'+trend+'</div></section><section class="card report-visual"><h3>Carteira por responsável</h3><p>Total de leads atribuídos no período</p>'+(pp||'<p>Nenhum lead atribuído.</p>')+'</section></div>';
   }
   window.reportsPage = function () {
     const allDeals=(state.deals||[]).filter(d=>!d.deleted_at);
@@ -2236,10 +2251,12 @@
         '</div>'+
         '<p class="form-help" style="margin-top:12px">Esses nomes são usados somente na atribuição de leads e tarefas. O acesso ao CRM continua protegido pela conta administradora.</p>';
     } else if(activeSettings==='aparencia') {
+      const scaleOptions=[80,90,100,110].map(n=>'<option value="'+n+'" '+(readCrmScale()===n?'selected':'')+'>'+n+'%'+(n===80?' — padrão':'')+'</option>').join('');
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
       contents=`<h3 class="settings-section-title">Aparência do Cirandaê</h3>
         <p class="settings-section-desc">Escolha a cor de destaque e o tema visual do CRM. A prévia é aplicada imediatamente.</p>
         <div class="form-field" style="max-width:360px"><label for="settingThemeMode">Tema</label><select id="settingThemeMode" onchange="previewNexoAppearance()"><option value="dark" ${theme==='dark'?'selected':''}>Modo escuro</option><option value="light" ${theme==='light'?'selected':''}>Modo claro</option></select></div>
+        <div class="form-field crm-scale-setting"><label for="settingCrmScale">Escala da interface (computador)</label><select id="settingCrmScale" onchange="setCrmScale(this.value)">${scaleOptions}</select><p class="form-help">Preferência deste navegador. Use o zoom do navegador em 100% para evitar dupla redução. Em telas pequenas a interface mantém a escala de 100%.</p></div>
         <div class="theme-control"><div><label for="settingAccentColor" style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px">Cor de destaque</label><div class="theme-wheel-wrap"><input id="settingAccentColor" type="color" value="${accent}" oninput="previewNexoAppearance()" aria-label="Escolher cor de destaque"><span id="accentHexValue">${accent.toUpperCase()}</span></div><p class="form-help">Use o seletor para escolher qualquer cor.</p></div><div class="theme-palette-side"><div style="font-size:11px;font-weight:700">Paleta rápida</div><p class="form-help">Inclui o azul da identidade Cirandaê.</p><div class="theme-swatches">${swatches}</div></div></div>
         <div class="appearance-preview"><div class="appearance-preview-mark"><img src="cirandae-logo.svg" alt="" style="width:28px;height:28px;object-fit:contain"></div><div style="flex:1"><strong style="display:block">Prévia Cirandaê CRM</strong><span class="card-sub">Identidade visual do sistema.</span></div><button class="btn primary small" type="button" onclick="previewNexoAppearance()">Aplicar prévia</button></div>
         ${canManage?button('Salvar aparência','saveNexoAppearance()',true,'check'):'<p class="form-help">Apenas o acesso administrador pode salvar a aparência.</p>'}
@@ -2388,6 +2405,7 @@
       settings: window.settingsPage
     };
     const renderer = pages[currentPage] || window.dashboard;
+    document.body.dataset.crmPage=currentPage;
     try {
       if (typeof renderer !== 'function') throw new Error('A tela solicitada não foi carregada corretamente.');
       target.innerHTML = renderer();
@@ -2447,6 +2465,7 @@
 
   // Reinitialize only after the authentication overlay has been attached.
   state=emptyState();
+  window.setCrmScale(readCrmScale());
   applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{const c=localStorage.getItem('nexo-crm-accent');return c||'#052D60';}catch(_){return '#052D60';}})(),false);
   ensureAuthMarkup();
   initializeApp();
