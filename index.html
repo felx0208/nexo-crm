@@ -644,6 +644,101 @@ body[data-theme="light"] .stage-action-art-delete{color:#a63b46}
 .import-result .import-issue{color:var(--muted)}
 @media(max-width:760px){.import-steps,.report-visual-grid{grid-template-columns:1fr}.report-bar-line{grid-template-columns:minmax(82px,110px) minmax(0,1fr) 25px}.lead-history-entry{grid-template-columns:1fr;gap:5px}.report-visual{padding:15px}}
 
+
+/* CRM 1.8 — identidade dinâmica, funil compacto e consulta de contato */
+body{--crm-accent-ink:color-mix(in srgb,var(--accent) 48%,var(--text));--crm-tint:color-mix(in srgb,var(--accent) 12%,var(--panel))}
+body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,var(--text));--crm-tint:color-mix(in srgb,var(--accent) 9%,var(--panel))}
+.nav-item.active svg,.settings-tab.active svg{color:var(--crm-accent-ink);stroke:currentColor}
+.stat-icon,.activity-icon,.appearance-preview-mark{background:var(--crm-tint);color:var(--crm-accent-ink);border-color:color-mix(in srgb,var(--accent) 20%,var(--line))}
+.card.stat-card{border-top:2px solid color-mix(in srgb,var(--accent) 48%,var(--line))}
+.board-layout-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:10px 0 12px;color:var(--muted);font-size:11px}
+.board-layout-toolbar>span{display:flex;align-items:center;gap:5px;font-weight:650}
+.board-layout-toolbar>span svg{color:var(--crm-accent-ink)}
+.board-layout-toolbar>small{font-size:10px;color:var(--muted)}
+.board-layout-switch{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line2);background:var(--panel2);border-radius:9px}
+.board-layout-switch button{display:flex;align-items:center;gap:5px;padding:6px 9px;font:inherit;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;white-space:nowrap}
+.board-layout-switch button.active{background:var(--crm-tint);color:var(--crm-accent-ink);border-color:color-mix(in srgb,var(--accent) 35%,var(--line));font-weight:700}
+.pipeline-board.board-compact{grid-template-columns:none!important;grid-auto-columns:170px!important;gap:8px!important;align-items:stretch;overflow-x:auto;overflow-y:hidden}
+.pipeline-board.board-classic{grid-template-columns:none!important;grid-auto-columns:198px!important;align-items:start;overflow-x:auto}
+.pipeline-board.board-compact .stage-column,.pipeline-board.board-classic .stage-column{min-width:0;max-width:none;display:flex;flex-direction:column;border:1px solid var(--line2);border-top:3px solid color-mix(in srgb,var(--accent) 65%,var(--line2));border-radius:11px;box-sizing:border-box;background:var(--panel2);overflow:visible}
+.pipeline-board.board-compact .stage-column{height:clamp(320px,calc(100vh - 258px),620px);min-height:320px}
+.pipeline-board.board-classic .stage-column{height:auto;min-height:170px}
+.pipeline-board .stage-column.stage-won{border-top-color:#429e80}
+.pipeline-board .stage-column.stage-lost{border-top-color:#b86d79}
+.pipeline-board .stage-head{display:flex!important;flex-direction:column!important;align-items:stretch!important;gap:7px!important;padding:9px 8px 8px!important;flex:none;border-radius:8px 8px 0 0;background:var(--crm-tint);min-width:0}
+.crm-stage-heading{display:flex;align-items:center;gap:5px;min-width:0}
+.crm-stage-icon{display:grid;place-items:center;width:21px;height:21px;min-width:21px;flex:none;color:var(--crm-accent-ink)!important;background:color-mix(in srgb,var(--accent) 15%,var(--panel2));border-radius:6px;margin:0!important}
+.pipeline-board .stage-head .crm-stage-heading strong{flex:1;min-width:0;max-width:none!important;white-space:normal;overflow-wrap:normal;word-break:normal;font-size:11px!important;line-height:1.3!important;margin:0}
+.crm-stage-options{display:grid;place-items:center;flex:0 0 23px;width:23px;height:23px;padding:0;background:transparent;border:1px solid var(--line);border-radius:6px;color:var(--muted);cursor:pointer}
+.crm-stage-options:hover,.crm-stage-options[aria-expanded="true"]{background:var(--panel);color:var(--crm-accent-ink)}
+.crm-stage-metrics{display:flex;flex-wrap:wrap;align-items:center;gap:4px;min-width:0}
+.pipeline-board .stage-head .stage-summary{max-width:none!important;margin:0!important;flex:none;padding:3px 6px;background:var(--panel);border:1px solid var(--line);border-radius:5px;color:var(--muted);font-size:10px!important}
+.crm-stage-value{margin-left:auto!important;font-size:10px!important;color:var(--crm-accent-ink)!important;font-weight:700;overflow-wrap:anywhere}
+.pipeline-board .stage-cards{min-width:0;padding:7px 6px 5px!important;min-height:70px;display:flex;flex-direction:column;gap:6px;scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--accent) 45%,var(--line2)) transparent}
+.pipeline-board.board-compact .stage-cards{flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior-y:contain}
+.pipeline-board.board-classic .stage-cards{overflow:visible;flex:1 0 auto}
+.pipeline-board .stage-cards:empty:before{content:"Nenhum lead";font-size:10px;line-height:1.5;color:var(--muted);text-align:center;padding:20px 3px;pointer-events:none}
+.pipeline-board .stage-add-deal{margin:6px!important;width:calc(100% - 12px)!important;min-height:30px!important;flex:none;justify-content:center;background:var(--crm-tint);color:var(--crm-accent-ink);border:1px dashed color-mix(in srgb,var(--accent) 32%,var(--line2));font-size:10px!important}
+.pipeline-board .stage-add-deal:hover{border-color:var(--accent)}
+.pipeline-board .crm-lead-card{flex:none;position:relative;min-width:0;box-sizing:border-box;margin:0!important;padding:9px 8px 7px!important;background:var(--panel)!important;border:1px solid var(--line2);border-radius:9px!important;box-shadow:0 2px 5px #0000000e;transition:border-color .16s,box-shadow .16s,transform .16s!important}
+.pipeline-board .crm-lead-card:hover{transform:translateY(-1px);border-color:color-mix(in srgb,var(--accent) 55%,var(--line2));box-shadow:0 3px 10px #00000017}
+.crm-lead-head{display:flex;gap:5px;align-items:flex-start;min-width:0}
+.crm-lead-symbol{display:grid;place-items:center;width:23px;height:23px;flex:0 0 23px;border-radius:6px;background:var(--crm-tint);color:var(--crm-accent-ink)}
+.pipeline-board .crm-lead-head strong{flex:1;min-width:0;font-size:11px!important;line-height:1.35!important;padding:0!important;margin:1px 0 0!important;white-space:normal;overflow-wrap:anywhere}
+.crm-lead-head .deal-recency-dot{position:static!important;width:7px;height:7px;flex:0 0 7px;margin:5px 0 0}
+.pipeline-board .crm-lead-card .deal-company{margin:4px 0 0 28px;font-size:10px!important;line-height:1.4!important;overflow-wrap:anywhere}
+.crm-lead-meta{margin-top:6px}
+.crm-lead-meta .deal-history-chip,.crm-lead-meta .deal-contact-recency,.crm-lead-meta .deal-stage-age{font-size:9px!important;line-height:1.4!important;margin:3px 0 0!important;overflow-wrap:anywhere}
+.crm-lead-meta .deal-history-chip svg{color:var(--crm-accent-ink)}
+.pipeline-board .crm-lead-card .deal-price{margin:8px 0 4px;font-size:14px;line-height:1.4;color:var(--crm-accent-ink)}
+.pipeline-board .crm-lead-card .deal-foot{padding-top:6px!important;margin-top:7px!important;min-width:0;font-size:10px!important}
+.crm-lead-card .deal-owner{min-width:0;flex:1}
+.crm-owner-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.crm-lead-card .tiny-avatar{height:19px;width:19px;flex:0 0 19px}
+.contact-view-button{display:inline-flex;align-items:center;justify-content:center;gap:6px;border:1px solid color-mix(in srgb,var(--accent) 25%,var(--line2));border-radius:7px;background:var(--crm-tint);color:var(--crm-accent-ink);padding:7px 9px;white-space:nowrap;font-size:11px;font-weight:650;cursor:pointer}
+.contact-view-button:hover{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 18%,var(--panel))}
+.contact-view-button svg{flex:none}
+.crm-lead-card .card-contact-button{display:flex;width:100%;margin:7px 0 0;padding:5px 4px;font-size:10px;min-height:26px}
+.contact-row-actions{display:flex;align-items:center;justify-content:flex-end;gap:7px}
+.floating-stage-options{position:fixed;z-index:150;min-width:174px;padding:5px;background:var(--panel);border:1px solid var(--line2);border-radius:10px;box-shadow:0 12px 30px #0005}
+.floating-stage-options button{display:flex;flex-direction:row;align-items:center;gap:9px;width:100%;border:0;border-radius:7px;background:transparent;color:var(--text);padding:9px 10px;white-space:nowrap;font:inherit;font-size:12px;text-align:left;cursor:pointer;writing-mode:horizontal-tb}
+.floating-stage-options button svg{flex:none}
+.floating-stage-options button span{white-space:nowrap;writing-mode:horizontal-tb;word-break:normal}
+.floating-stage-options button:hover{background:var(--crm-tint)}
+.floating-stage-options button:last-child svg{color:#bc6671}
+.locked-lead-contact{display:flex;align-items:center;gap:9px;padding:10px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;flex-wrap:wrap}
+.locked-contact-name{flex:1;min-width:100px;display:flex;flex-direction:column;gap:3px}
+.locked-contact-name strong{font-size:12px;overflow-wrap:anywhere}
+.locked-contact-name small{font-size:10px;color:var(--muted);overflow-wrap:anywhere}
+.contact-view-backdrop{display:none;position:fixed;inset:0;background:#050c1685;backdrop-filter:blur(6px);z-index:350;align-items:center;justify-content:center;padding:16px}
+.contact-view-backdrop.open{display:flex}
+.contact-view-dialog{width:min(495px,100%);max-height:90vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line2);border-radius:17px;box-shadow:0 24px 75px #0007}
+.contact-view-top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 19px;background:var(--crm-tint);border-bottom:1px solid var(--line);font-size:12px;font-weight:700}
+.contact-view-top>span{display:flex;align-items:center;gap:7px;color:var(--crm-accent-ink)}
+.contact-view-body{padding:19px}
+.contact-profile{display:flex;align-items:center;gap:13px;margin-bottom:18px}
+.contact-profile-avatar{display:grid;place-items:center;width:52px;height:52px;flex:none;border:1px solid var(--line2);background:var(--crm-tint);border-radius:14px;color:var(--crm-accent-ink);font-size:18px;font-weight:750}
+.contact-profile h2{font-size:17px;line-height:1.4;margin:0;overflow-wrap:anywhere}
+.contact-profile p{font-size:11px;color:var(--muted);margin:4px 0 7px}
+.contact-view-status{display:inline-block;padding:4px 7px;background:var(--crm-tint);border:1px solid var(--line);border-radius:6px;font-size:10px}
+.contact-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.contact-detail-field{display:flex;align-items:flex-start;gap:9px;min-width:0;padding:10px 8px;border:1px solid var(--line);background:var(--panel2);border-radius:9px}
+.contact-detail-field>div{min-width:0}
+.contact-detail-icon{display:grid;place-items:center;width:30px;height:30px;flex:0 0 30px;background:var(--crm-tint);border-radius:7px;color:var(--crm-accent-ink)}
+.contact-detail-field small{display:block;color:var(--muted);font-size:10px;margin:0 0 4px}
+.contact-detail-field strong{font-size:11px;font-weight:650;line-height:1.4;overflow-wrap:anywhere}
+.contact-detail-section{margin-top:15px;padding:13px;border:1px solid var(--line);border-radius:10px;background:var(--panel2)}
+.contact-detail-section h3{display:flex;align-items:center;gap:7px;font-size:12px;margin:0 0 9px}
+.contact-detail-section h3 svg{color:var(--crm-accent-ink)}
+.contact-detail-section p{margin:0;color:var(--muted);font-size:12px;line-height:1.6;white-space:pre-wrap;overflow-wrap:anywhere}
+.contact-linked-lead{display:flex;align-items:center;gap:8px;justify-content:space-between;border-top:1px solid var(--line);padding:8px 0;font-size:11px}
+.contact-linked-lead>strong{overflow-wrap:anywhere;min-width:0}
+.contact-linked-lead>span{color:var(--crm-accent-ink);white-space:nowrap;flex:none;font-size:10px}
+.contact-view-footer{display:flex;justify-content:flex-end;padding:12px 19px;border-top:1px solid var(--line)}
+@media(max-width:760px){.pipeline-board.board-compact{grid-auto-columns:164px!important}.pipeline-board.board-compact .stage-column{height:clamp(300px,calc(100dvh - 225px),550px);min-height:300px}.board-layout-toolbar>small{flex-basis:100%}}
+@media(max-width:390px){.contact-detail-grid{grid-template-columns:1fr}}
+@media(prefers-reduced-motion:reduce){.pipeline-board .crm-lead-card{transition:none!important}.pipeline-board .crm-lead-card:hover{transform:none!important}}
+
 </style>
 </head>
 <body>
@@ -688,11 +783,20 @@ body[data-theme="light"] .stage-action-art-delete{color:#a63b46}
   </section>
 </div>
 
+
+<div id="contactViewBackdrop" class="contact-view-backdrop" role="dialog" aria-modal="true" aria-hidden="true" aria-label="Ficha de contato" onclick="if(event.target===this)closeContactView()">
+  <section class="contact-view-dialog">
+    <div class="contact-view-top"><span><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 12s3-6 8-6 8 6 8 6-3 6-8 6-8-6-8-6z"/><circle cx="12" cy="12" r="2.5"/></svg> Ficha do contato</span><button type="button" class="icon-button" aria-label="Fechar ficha" onclick="closeContactView()"><svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
+    <div id="contactViewBody" class="contact-view-body"></div>
+    <div class="contact-view-footer"><button class="btn primary" type="button" onclick="closeContactView()">Fechar</button></div>
+  </section>
+</div>
+
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 <div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.03em">Cirandaê CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
 
 <script>
-const ICONS={plus:'<path d="M12 5v14M5 12h14"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',up:'<path d="m5 15 7-7 7 7"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',money:'<path d="M3 7h18v13H3zM3 7l2-3h14l2 3"/><path d="M16 13h5M6 11h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',search:'<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',filter:'<path d="M4 5h16M7 12h10m-7 7h4"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7l.5 2.5a2 2 0 0 1-.6 1.9l-1.3 1.3a16 16 0 0 0 5.8 5.8l1.3-1.3a2 2 0 0 1 1.9-.6l2.5.5a2 2 0 0 1 1.8 2.1Z"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',note:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',chart:'<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-7"/>',ellipsis:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',pencil:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5Z"/>','trash-2':'<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 10v7M14 10v7"/>'};
+const ICONS={eye:'<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>',building:'<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 7h2m4 0h2m-8 4h2m4 0h2m-8 4h2m4 0h2M10 21v-3h4v3"/>',layout:'<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 9v12"/>',columns:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16M15 4v16"/>',list:'<path d="M9 6h12M9 12h12M9 18h12M3 6h1M3 12h1M3 18h1"/>',x:'<path d="m6 6 12 12M18 6 6 18"/>',plus:'<path d="M12 5v14M5 12h14"/>',arrow:'<path d="M5 12h14m-6-6 6 6-6 6"/>',up:'<path d="m5 15 7-7 7 7"/>',users:'<path d="M16 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><path d="M20 21v-2a4 4 0 0 0-3-3.9M16 3.1a4 4 0 0 1 0 7.8"/>',target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1"/>',money:'<path d="M3 7h18v13H3zM3 7l2-3h14l2 3"/><path d="M16 13h5M6 11h.01"/>',check:'<path d="m5 12 4 4L19 6"/>',calendar:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',search:'<circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/>',download:'<path d="M12 3v12m-5-5 5 5 5-5M4 21h16"/>',filter:'<path d="M4 5h16M7 12h10m-7 7h4"/>',dots:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',phone:'<path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7l.5 2.5a2 2 0 0 1-.6 1.9l-1.3 1.3a16 16 0 0 0 5.8 5.8l1.3-1.3a2 2 0 0 1 1.9-.6l2.5.5a2 2 0 0 1 1.8 2.1Z"/>',mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/>',note:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h8"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',chart:'<path d="M3 3v18h18"/><path d="m7 14 4-4 4 3 5-7"/>',ellipsis:'<circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/>',pencil:'<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L9 17l-4 1 1-4L16.5 3.5Z"/>','trash-2':'<path d="M3 6h18M8 6V4h8v2M6 6l1 15h10l1-15M10 10v7M14 10v7"/>'};
 function ico(name,size=16){return `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${ICONS[name]||ICONS.note}</svg>`}
 const SEED={contacts:[],deals:[],tasks:[],activities:[]};
 let state=loadState();let currentPage='dashboard';let contactFilter='Todos';let taskFilter='Todas';let activeSettings='aparencia';let modalType='';let editingId=null;let searchQuery='';
@@ -832,6 +936,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.7.1-importacao-analise-historico-20261121"></script>
+<script src="integration.js?v=1.8.0-funil-compacto-contatos-20261121"></script>
 </body>
 </html>
