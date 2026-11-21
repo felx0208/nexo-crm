@@ -835,6 +835,13 @@ body .chart text{font-family:var(--crm-font);font-weight:700}
 body :is(input,textarea)::placeholder{font-weight:650}
 @media(max-width:760px){body .pipeline-channel-toggle button{font-size:11px}body .heading-actions .btn{font-size:11px}}
 
+
+/* CRM 1.8.4 — consulta na ficha interna do lead */
+body .locked-lead-contact .lead-contact-view-button{flex:0 0 auto;min-height:34px;padding:8px 12px;font-size:12px;font-weight:850;gap:7px}
+body .locked-lead-contact .lead-contact-view-button svg{flex:none}
+body .locked-lead-contact .locked-contact-name{min-width:120px}
+@media(max-width:390px){body .locked-lead-contact .lead-contact-view-button{width:100%}}
+
 </style>
 </head>
 <body>
@@ -1032,6 +1039,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.8.3-tipografia-global-20261121"></script>
+<script src="integration.js?v=1.8.4-contato-interno-20261121"></script>
 </body>
 </html>
