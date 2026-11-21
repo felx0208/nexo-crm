@@ -661,15 +661,53 @@
     }).join('');
     return '#'+out;
   }
-  function readCrmScale(){
-    try{const v=Number(localStorage.getItem('cirandae-crm-scale'));return [80,90,100,110].includes(v)?v:80;}catch(e){return 80;}
+  const defaultPersonalAppearance={theme_mode:'dark',accent_color:'#052D60',view_scale:80};
+  let personalAppearance={...defaultPersonalAppearance},appearanceProfile=null,appearanceWrite=Promise.resolve(),appearanceTimer=null,appearanceRevision=0;
+  function prefKey(id){return 'cirandae-crm-appearance-v2:'+id;}
+  function normalizePersonalAppearance(v){return {theme_mode:v?.theme_mode==='light'?'light':'dark',accent_color:cleanHex(v?.accent_color||'#052D60'),view_scale:[80,90,100,110].includes(Number(v?.view_scale))?Number(v.view_scale):80};}
+  function cachedPreference(id){try{return JSON.parse(localStorage.getItem(prefKey(id))||'null');}catch(e){return null;}}
+  function cachePreference(id,dirty){if(!id)return;try{localStorage.setItem(prefKey(id),JSON.stringify({...personalAppearance,dirty:!!dirty}));}catch(e){}}
+  function readCrmScale(){return personalAppearance.view_scale;}
+  function paintScale(value){
+    document.documentElement.style.setProperty('--crm-view-scale',String(value/100));
+    const sel=document.getElementById('settingCrmScale');if(sel)sel.value=String(value);
+    window.closeStageOptions?.();
+  }
+  function queueAppearanceWrite(){
+    clearTimeout(appearanceTimer);appearanceTimer=null;
+    const id=appearanceProfile,revision=appearanceRevision,values={...personalAppearance};
+    if(!id||Number(currentUser?.id)!==id)return Promise.resolve(false);
+    appearanceWrite=appearanceWrite.catch(()=>false).then(async()=>{
+      if(Number(currentUser?.id)!==id||appearanceProfile!==id)return false;
+      const result=await sb().from('crm_user_preferences').upsert({user_id:id,...values,updated_at:new Date().toISOString()},{onConflict:'user_id'});
+      if(result.error)throw result.error;
+      if(appearanceProfile===id&&appearanceRevision===revision)cachePreference(id,false);
+      return true;
+    });
+    return appearanceWrite;
+  }
+  function scheduleAppearanceWrite(){if(!appearanceProfile)return;clearTimeout(appearanceTimer);appearanceTimer=setTimeout(()=>{queueAppearanceWrite().catch(()=>{showToast('A escolha ficou salva neste navegador. Não foi possível sincronizar agora.');});},320);}
+  function rememberAppearance(change){
+    personalAppearance=normalizePersonalAppearance({...personalAppearance,...change});
+    if(appearanceProfile){appearanceRevision++;cachePreference(appearanceProfile,true);scheduleAppearanceWrite();}
+  }
+  async function loadPersonalAppearance(){
+    const id=Number(currentUser?.id);if(!id||appearanceProfile===id)return;
+    clearTimeout(appearanceTimer);appearanceTimer=null;
+    const cached=cachedPreference(id);
+    appearanceProfile=id;appearanceRevision++;personalAppearance=normalizePersonalAppearance(cached||defaultPersonalAppearance);
+    try{
+      const result=await sb().from('crm_user_preferences').select('theme_mode,accent_color,view_scale,updated_at').eq('user_id',id).maybeSingle();
+      if(result.error)throw result.error;
+      if(Number(currentUser?.id)!==id||appearanceProfile!==id)return;
+      if(cached?.dirty){scheduleAppearanceWrite();}
+      else if(result.data){personalAppearance=normalizePersonalAppearance(result.data);cachePreference(id,false);}
+      else {cachePreference(id,true);scheduleAppearanceWrite();}
+    }catch(e){if(appearanceProfile===id&&cached?.dirty)scheduleAppearanceWrite();}
   }
   window.setCrmScale=function(value){
-    const n=Number(value),next=[80,90,100,110].includes(n)?n:80;
-    document.documentElement.style.setProperty('--crm-view-scale',String(next/100));
-    try{localStorage.setItem('cirandae-crm-scale',String(next));}catch(e){}
-    const sel=document.getElementById('settingCrmScale');if(sel)sel.value=String(next);
-    window.closeStageOptions?.();
+    const next=[80,90,100,110].includes(Number(value))?Number(value):80;
+    rememberAppearance({view_scale:next});paintScale(next);
   };
   function applyAppearance(theme, accent, remember=true) {
     const safeTheme = theme === 'light' ? 'light' : 'dark';
@@ -706,15 +744,11 @@
       '--soft': mixHexColor(safeAccent, dark ? '#d9e1eb' : '#e6edf5', dark ? .08 : .07)
     };
     Object.entries(surfaces).forEach(([key,value])=>document.body.style.setProperty(key,value));
-    if (remember) {
-      try { localStorage.setItem('nexo-crm-theme',safeTheme); localStorage.setItem('nexo-crm-accent',safeAccent); } catch (_) {}
-    }
+    if(remember)rememberAppearance({theme_mode:safeTheme,accent_color:safeAccent});
   }
-  function applySavedAppearance() {
-    let localTheme='dark',localAccent='#052D60';
-    try { localTheme=localStorage.getItem('nexo-crm-theme')||localTheme; const storedAccent=localStorage.getItem('nexo-crm-accent'); localAccent=storedAccent||localAccent; } catch (_) {}
-    applyAppearance(companySettings?.theme_mode||localTheme,companySettings?.accent_color||localAccent,false);
-    window.setCrmScale(readCrmScale());
+  function applySavedAppearance(){
+    applyAppearance(personalAppearance.theme_mode,personalAppearance.accent_color,false);
+    paintScale(personalAppearance.view_scale);
   }
   window.previewNexoAppearance = function() {
     const theme=document.getElementById('settingThemeMode')?.value || 'dark';
@@ -732,27 +766,11 @@
     if(input) input.value=cleanHex(color);
     window.previewNexoAppearance();
   };
-  window.saveNexoAppearance = async function() {
-    const theme=document.getElementById('settingThemeMode')?.value || 'dark';
-    const accent=cleanHex(document.getElementById('settingAccentColor')?.value || '#052D60');
-    applyAppearance(theme,accent,true);
-    if(currentUser?.role!=='admin') { showToast('Não foi possível salvar esta preferência.'); return; }
-    try {
-      const prior=companySettings||{};
-      await api('settings','POST',{
-        name:'Cirandaê',
-        currency:'BRL',
-        timezone:'America/Sao_Paulo',
-        theme_mode:theme,
-        accent_color:accent
-      });
-      await loadRemoteState(); render(); showToast('Aparência salva.');
-    } catch(e) {
-      showToast(e.message||'A aparência foi aplicada neste navegador, mas não foi salva no Supabase.');
-      console.warn('[Cirandaê CRM] Falha ao salvar aparência:',e.message);
-    }
+  window.saveNexoAppearance=async function(){
+    window.previewNexoAppearance();
+    try{if(await queueAppearanceWrite())showToast('Sua aparência pessoal foi salva.');}
+    catch(e){showToast('Preferência salva neste navegador. Não foi possível sincronizar com sua conta.');}
   };
-
   async function loadRemoteState() {
     const [contacts, deals, tasks, activities, pipeline, settings] = await Promise.all([
       api('contacts'), api('deals'), api('tasks'), api('activities'), api('pipelines'), api('settings')
@@ -772,6 +790,7 @@
     state.pipelines = pipeline.data || [];
     state.pipelineStages = (pipeline.stages || []).map(s=>({...s,id:Number(s.id),pipeline_id:Number(s.pipeline_id),name:String(s.name||''),position:Number(s.position),probability:Number(s.probability),is_won:Boolean(s.is_won),is_lost:Boolean(s.is_lost)}));
     companySettings = settings.data || null;
+    await loadPersonalAppearance();
     applySavedAppearance();
     try {
       const users = await api('users');
@@ -877,8 +896,10 @@
   };
 
   async function logout() {
+    if(appearanceTimer){try{await queueAppearanceWrite();}catch(e){}}else {try{await appearanceWrite;}catch(e){}}
+    stopLeadNoticeMonitor();
     try { await api('logout','POST',{}); } catch(e) { /* limpa a interface mesmo se a sessão já expirou */ }
-    currentUser=null; csrfToken=''; state=emptyState(); window.closeReleaseNotes?.(); showAuthGate('login','Você saiu da sua conta.');
+    currentUser=null; csrfToken=''; state=emptyState(); appearanceProfile=null;personalAppearance={...defaultPersonalAppearance};appearanceRevision++;applySavedAppearance();window.closeReleaseNotes?.();showAuthGate('login','Você saiu da sua conta.');
   }
   window.nexoLogout=logout;
 
@@ -2172,6 +2193,37 @@
     catch(e){showToast(e.message||'Não foi possível salvar as configurações.');}
   };
   window.setSettingsTab = function(t){activeSettings=t;render();};
+  window.toggleCrmPasswordVisibility=function(button){const field=button.parentElement.querySelector('input');if(!field)return;field.type=field.type==='password'?'text':'password';button.setAttribute('aria-label',field.type==='password'?'Mostrar senha':'Ocultar senha');button.setAttribute('aria-pressed',String(field.type==='text'));};
+  window.changeOwnCrmPassword=async function(event){
+    event.preventDefault();
+    const form=event.currentTarget,btn=form.querySelector('button[type="submit"]'),feedback=form.querySelector('.crm-password-feedback');
+    if(btn.disabled||!currentUser)return;
+    const fields=new FormData(form),oldPassword=String(fields.get('current_password')||''),newPassword=String(fields.get('new_password')||''),confirmation=String(fields.get('confirm_password')||'');
+    const report=(message,success=false)=>{feedback.hidden=false;feedback.textContent=message;feedback.classList.toggle('success',success);};
+    if(!oldPassword){report('Informe sua senha atual.');return;}
+    if(newPassword.length<12){report('A nova senha deve ter pelo menos 12 caracteres.');return;}
+    if(newPassword!==confirmation){report('As duas novas senhas não coincidem.');return;}
+    if(newPassword===oldPassword){report('Escolha uma senha diferente da atual.');return;}
+    btn.disabled=true;btn.textContent='Verificando senha...';feedback.hidden=true;
+    let verifier=null;
+    try{
+      const active=await sb().auth.getUser(),authUser=active.data?.user;
+      if(active.error||!authUser?.email||authUser.id!==currentUser?.auth_user_id)throw new Error('Sessão inválida. Entre novamente.');
+      const cfg=window.NEXO_SUPABASE_CONFIG;
+      verifier=window.supabase.createClient(cfg.url,cfg.publishableKey,{auth:{persistSession:false,autoRefreshToken:false,detectSessionInUrl:false,storageKey:'cirandae-password-verification'}});
+      const check=await verifier.auth.signInWithPassword({email:authUser.email,password:oldPassword});
+      if(check.error)throw new Error('Não foi possível validar a senha atual. Confira a senha ou tente novamente mais tarde.');
+      if(check.data?.user?.id!==authUser.id||currentUser?.auth_user_id!==authUser.id)throw new Error('A sessão mudou. Entre novamente para continuar.');
+      btn.textContent='Alterando senha...';
+      const updated=await verifier.auth.updateUser({password:newPassword});
+      if(updated.error)throw new Error(updated.error.message||'Não foi possível alterar a senha.');
+      form.reset();report('Senha alterada com sucesso. Use a nova senha no próximo acesso.',true);showToast('Sua senha foi alterada.');
+    }catch(e){report(e.message||'Não foi possível alterar sua senha.');}
+    finally{
+      if(verifier){try{await verifier.auth.signOut({scope:'local'});}catch(e){}}
+      btn.disabled=false;btn.innerHTML=ico('check',16)+' Alterar senha';
+    }
+  };
   window.savePipelineStage = async function(id) {
     if(currentUser?.role!=='admin'){showToast('Somente o administrador pode editar colunas.');return;}
     const stage=(state.pipelineStages||[]).find(s=>Number(s.id)===Number(id));
@@ -2210,16 +2262,12 @@
     catch(e){showToast(e.message||'Não foi possível excluir a coluna.');}
   };
   window.settingsPage = function() {
-    let localTheme='dark',localAccent='#052D60';
-    try {
-      localTheme=localStorage.getItem('nexo-crm-theme')||localTheme;
-      localAccent=localStorage.getItem('nexo-crm-accent')||localAccent;
-    } catch(_) {}
-    const theme=companySettings?.theme_mode||localTheme;
-    const accent=cleanHex(companySettings?.accent_color||localAccent);
+    const theme=personalAppearance.theme_mode;
+    const accent=personalAppearance.accent_color;
     const canManage=currentUser?.role==='admin';
     const tabs=[
       ['aparencia','Aparência'],
+      ['senha','Alterar senha'],
       ['filtros','Filtros salvos'],
       ['campos','Campos personalizados'],
       ['importacao','Importar leads'],
@@ -2246,13 +2294,15 @@
       const scaleOptions=[80,90,100,110].map(n=>'<option value="'+n+'" '+(readCrmScale()===n?'selected':'')+'>'+n+'%'+(n===80?' — padrão':'')+'</option>').join('');
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
       contents=`<h3 class="settings-section-title">Aparência do Cirandaê</h3>
-        <p class="settings-section-desc">Escolha a cor de destaque e o tema visual do CRM. A prévia é aplicada imediatamente.</p>
+        <p class="settings-section-desc">Escolha seu tema, cor e escala. As escolhas são salvas automaticamente na sua conta, sem afetar outros usuários.</p>
         <div class="form-field" style="max-width:360px"><label for="settingThemeMode">Tema</label><select id="settingThemeMode" onchange="previewNexoAppearance()"><option value="dark" ${theme==='dark'?'selected':''}>Modo escuro</option><option value="light" ${theme==='light'?'selected':''}>Modo claro</option></select></div>
-        <div class="form-field crm-scale-setting"><label for="settingCrmScale">Escala da interface (computador)</label><select id="settingCrmScale" onchange="setCrmScale(this.value)">${scaleOptions}</select><p class="form-help">Preferência deste navegador. Use o zoom do navegador em 100% para evitar dupla redução. Em telas pequenas a interface mantém a escala de 100%.</p></div>
+        <div class="form-field crm-scale-setting"><label for="settingCrmScale">Escala da interface (computador)</label><select id="settingCrmScale" onchange="setCrmScale(this.value)">${scaleOptions}</select><p class="form-help">Preferência individual da sua conta. Use o zoom do navegador em 100% para evitar dupla redução. Em telas pequenas a interface mantém a escala de 100%.</p></div>
         <div class="theme-control"><div><label for="settingAccentColor" style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px">Cor de destaque</label><div class="theme-wheel-wrap"><input id="settingAccentColor" type="color" value="${accent}" oninput="previewNexoAppearance()" aria-label="Escolher cor de destaque"><span id="accentHexValue">${accent.toUpperCase()}</span></div><p class="form-help">Use o seletor para escolher qualquer cor.</p></div><div class="theme-palette-side"><div style="font-size:11px;font-weight:700">Paleta rápida</div><p class="form-help">Inclui o azul da identidade Cirandaê.</p><div class="theme-swatches">${swatches}</div></div></div>
         <div class="appearance-preview"><div class="appearance-preview-mark"><img src="cirandae-logo.svg" alt="" style="width:28px;height:28px;object-fit:contain"></div><div style="flex:1"><strong style="display:block">Prévia Cirandaê CRM</strong><span class="card-sub">Identidade visual do sistema.</span></div><button class="btn primary small" type="button" onclick="previewNexoAppearance()">Aplicar prévia</button></div>
-        ${canManage?button('Salvar aparência','saveNexoAppearance()',true,'check'):'<p class="form-help">Apenas o acesso administrador pode salvar a aparência.</p>'}
+        ${button('Salvar minha aparência','saveNexoAppearance()',true,'check')}
       `;
+    } else if(activeSettings==='senha') {
+      contents='<h3 class="settings-section-title">Alterar minha senha</h3><p class="settings-section-desc">Confirme sua senha atual e escolha uma nova senha. A alteração vale somente para sua conta.</p><div class="crm-password-panel"><div class="crm-password-symbol">'+ico('shield',24)+'</div><form id="crmPasswordForm" autocomplete="off" onsubmit="changeOwnCrmPassword(event)"><div class="form-field"><label for="crmCurrentPassword">Senha atual</label><div class="crm-password-input"><input id="crmCurrentPassword" name="current_password" type="password" autocomplete="current-password" required><button type="button" class="icon-button" aria-label="Mostrar senha atual" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div></div><div class="form-field"><label for="crmNewPassword">Nova senha</label><div class="crm-password-input"><input id="crmNewPassword" name="new_password" type="password" autocomplete="new-password" minlength="12" required><button type="button" class="icon-button" aria-label="Mostrar nova senha" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div><p class="form-help">Use pelo menos 12 caracteres.</p></div><div class="form-field"><label for="crmConfirmPassword">Confirmar nova senha</label><div class="crm-password-input"><input id="crmConfirmPassword" name="confirm_password" type="password" autocomplete="new-password" minlength="12" required><button type="button" class="icon-button" aria-label="Mostrar confirmação" onclick="toggleCrmPasswordVisibility(this)">'+ico('eye',16)+'</button></div></div><p class="crm-password-feedback" role="status" aria-live="polite" hidden></p><button class="btn primary" type="submit">'+ico('check',16)+' Alterar senha</button></form></div>';
     } else if(activeSettings==='filtros') {
       const views=(state.savedViews||[]).filter(v=>['contacts','deals'].includes(v.entity_type)).slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
       const viewRows=views.map(v=>`<div class="custom-field-row"><div><strong>${esc(v.name)}</strong><small>${v.entity_type==='contacts'?'Contatos':'Oportunidades'} · ${v.is_shared?'Compartilhado':'Pessoal'}</small></div><button class="btn small ghost" onclick="applySavedView('${Number(v.id)}')">Abrir filtro</button><div class="custom-field-row-actions"><button class="btn small ghost" onclick="deleteSavedView(${Number(v.id)})">Excluir</button></div></div>`).join('');
@@ -2452,8 +2502,8 @@
 
   // Reinitialize only after the authentication overlay has been attached.
   state=emptyState();
-  window.setCrmScale(readCrmScale());
-  applyAppearance((()=>{try{return localStorage.getItem('nexo-crm-theme')||'dark';}catch(_){return 'dark';}})(),(()=>{try{const c=localStorage.getItem('nexo-crm-accent');return c||'#052D60';}catch(_){return '#052D60';}})(),false);
+  paintScale(80);
+  applyAppearance('dark','#052D60',false);
   ensureAuthMarkup();
   initializeApp();
 })();
