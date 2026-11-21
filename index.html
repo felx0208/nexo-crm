@@ -960,6 +960,53 @@ body[data-theme="light"] .nav-item[data-page="pipeline"]>svg{color:var(--crm-acc
 .crm-password-panel .crm-password-feedback{color:#cc676b;font-weight:800;font-size:12px;line-height:1.55;overflow-wrap:anywhere;margin:8px 0 14px}
 .crm-password-panel .crm-password-feedback.success{color:var(--text);border-left:3px solid #46a484;padding-left:10px}
 
+
+/* CRM 1.11 — símbolos próprios, duotone e central de ajuda */
+body .sidebar .nav-item{min-height:49px;gap:11px;border-radius:13px}
+body .sidebar .nav-item>.crm-nav-symbol{width:30px;height:30px;flex:0 0 30px;color:var(--muted);stroke:currentColor;overflow:visible;transition:color .18s,filter .18s}
+body .sidebar .nav-item>.crm-nav-symbol .nav-shape-fill{fill:color-mix(in srgb,var(--crm-glow) 20%,transparent)}
+body .sidebar .nav-item:hover>.crm-nav-symbol,body .sidebar .nav-item.active>.crm-nav-symbol{color:var(--crm-accent-ink)}
+body .sidebar .nav-item.active>.crm-nav-symbol .nav-shape-fill{fill:color-mix(in srgb,var(--crm-glow) 33%,transparent)}
+body .sidebar .nav-item[data-page="pipeline"]>.crm-nav-symbol{color:var(--crm-glow);filter:drop-shadow(0 0 3px color-mix(in srgb,var(--crm-glow) 60%,transparent)) drop-shadow(0 0 8px color-mix(in srgb,var(--crm-glow) 34%,transparent))}
+body .sidebar .nav-item[data-page="whatsapp"]>.crm-nav-symbol{color:#78C99A}
+body[data-theme="light"] .sidebar .nav-item[data-page="whatsapp"]>.crm-nav-symbol{color:#288653}
+body[data-theme="light"] .sidebar .nav-item[data-page="pipeline"]>.crm-nav-symbol{color:var(--crm-accent-ink)}
+body .sidebar .nav-item[data-page="whatsapp"] .nav-shape-fill{fill:#46a48425}
+body.nexo-sidebar-collapsed .sidebar:not(:hover) .nav-item{gap:0;min-height:51px}
+body.nexo-sidebar-collapsed .sidebar:not(:hover) .nav-item>.crm-nav-symbol{width:32px;height:32px;flex-basis:32px}
+body .sidebar .nav-item[hidden],body .sidebar .nav-count[hidden]{display:none!important}
+body .sidebar .crm-support-count{color:var(--crm-accent-ink);border-color:var(--crm-glow);background:var(--crm-tint)}
+.crm-support-notice{top:24px;bottom:auto;z-index:395}
+.crm-help-layout{display:grid;grid-template-columns:minmax(220px,.85fr) minmax(0,1.4fr);gap:18px;max-width:1100px;align-items:start}
+.crm-help-hero,.crm-help-form-panel{padding:26px}
+.crm-help-mark{display:grid;place-items:center;width:58px;height:58px;border-radius:17px;background:var(--crm-tint);color:var(--crm-accent-ink);margin-bottom:20px;box-shadow:0 0 24px color-mix(in srgb,var(--crm-glow) 16%,transparent)}
+.crm-help-mark img{width:42px;height:42px;object-fit:contain}
+.crm-help-hero h2,.crm-inbox-summary h2{font-size:25px;line-height:1.25;margin:8px 0 12px;letter-spacing:-.025em}
+.crm-help-hero>p{color:var(--muted);line-height:1.65;overflow-wrap:anywhere}
+.crm-help-private{display:flex;align-items:center;gap:8px;border-top:1px solid var(--line2);padding-top:17px;margin-top:24px;font-weight:800;color:var(--crm-accent-ink)}
+.crm-help-form-panel .card-sub{margin-bottom:20px}
+.crm-help-form-panel .form-field{margin-bottom:17px}
+.crm-help-form-panel textarea{min-height:148px;width:100%;resize:vertical}
+.crm-help-feedback{font-size:13px;font-weight:750;color:var(--text);border-left:3px solid #bd6d71;padding:10px 12px;margin:12px 0}
+.crm-help-feedback.success{border-color:#46a484}
+.crm-inbox-summary{display:flex;align-items:center;gap:18px;padding:24px;margin-bottom:18px}
+.crm-inbox-summary .crm-help-mark{margin:0;flex:none}
+.crm-help-filters{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.crm-support-list{display:flex;flex-direction:column;gap:10px}
+.crm-support-ticket{overflow:hidden}
+.crm-support-ticket.unread{border-left:3px solid var(--crm-glow);background-image:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) 13%,transparent),transparent 72%)}
+.crm-support-ticket-head{display:flex;align-items:center;text-align:left;gap:12px;width:100%;padding:16px;background:none;color:var(--text);border:0;cursor:pointer}
+.crm-support-ticket-icon{display:grid;place-items:center;flex:none;width:39px;height:39px;border-radius:12px;background:var(--crm-tint);color:var(--crm-accent-ink)}
+.crm-support-ticket-copy{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.crm-support-ticket-copy strong{font-size:14px;overflow-wrap:anywhere}
+.crm-support-ticket-copy small{color:var(--muted);font-size:11px}
+.crm-support-chevron{font-size:20px;color:var(--muted);font-weight:700}
+.crm-support-ticket-body{padding:16px 20px 20px;border-top:1px solid var(--line)}
+.crm-support-message{white-space:pre-wrap;overflow-wrap:anywhere;font-size:14px;line-height:1.65}
+.crm-support-actions{display:flex;justify-content:flex-end;margin-top:18px}
+@media(max-width:760px){.crm-help-layout{grid-template-columns:1fr}.crm-help-hero,.crm-help-form-panel{padding:18px}.crm-support-ticket-head{padding:12px;gap:8px}.crm-support-notice{top:12px}}
+@media(prefers-reduced-motion:reduce){body .sidebar .nav-item>.crm-nav-symbol{transition:none}}
+
 </style>
 </head>
 <body>
@@ -969,18 +1016,20 @@ body[data-theme="light"] .nav-item[data-page="pipeline"]>svg{color:var(--crm-acc
     <div class="brand"><div class="brand-mark" aria-label="Logo Cirandaê"><img class="brand-symbol" src="cirandae-logo.svg" alt=""></div><div><div class="brand-name">Cirandaê <span>CRM</span></div><div class="brand-sub">RECREAÇÃO INFANTIL</div></div></div>
     <div class="nav-label">COMERCIAL</div>
     <nav class="nav" aria-label="Navegação principal">
-      <button class="nav-item active" data-page="dashboard" title="Visão geral" onclick="navigate('dashboard')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="3" y="3" width="7" height="8" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="11" width="7" height="10" rx="1.5"/><rect x="3" y="15" width="7" height="6" rx="1.5"/></svg>Visão geral</button>
-      <button class="nav-item" data-page="contacts" title="Contatos" onclick="navigate('contacts')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="9" cy="8" r="3.5"/><path d="M2.8 20c.5-3.7 2.7-5.5 6.2-5.5s5.7 1.8 6.2 5.5"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.7M17.2 14.8c2.4.5 3.7 2.1 4 5.2"/></svg>Contatos<span class="nav-count" id="contactCount">0</span></button>
-      <button class="nav-item" data-page="whatsapp" title="WhatsApp" onclick="navigate('whatsapp')"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.2 11.7a8.2 8.2 0 0 1-12.1 7.2L3 20l1.2-4.8A8.2 8.2 0 1 1 20.2 11.7Z"/><path d="M8.3 8.1c.4-.6.8-.5 1.1-.1l.9 1.5c.2.3.1.6-.2.9l-.5.5c.6 1.3 1.6 2.3 2.9 2.9l.5-.6c.2-.3.6-.4.9-.2l1.5.8c.4.2.5.7.2 1.1-.5.7-1.2 1-2 1-2.7-.2-6.2-3.7-6.4-6.4 0-.6.4-1.1 1.1-1.4Z"/></svg>WhatsApp<span class="nav-count" style="color:#88c98a;border-color:#315b3b;background:#18261c">Preparar</span></button>
-      <button class="nav-item" data-page="pipeline" title="Funil de vendas" onclick="navigate('pipeline')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><rect x="3" y="4" width="5" height="6" rx="1"/><rect x="10" y="4" width="5" height="11" rx="1"/><rect x="17" y="4" width="4" height="15" rx="1"/><path d="M3 13h5M10 18h5"/></svg>Funil de vendas</button>
-      <button class="nav-item" data-page="reports" title="Gestão e análise" onclick="navigate('reports')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M4 20V10m5 10V4m5 16v-7m5 7V7"/><path d="M2 20h20"/></svg>Gestão e análise</button>
-        <button class="nav-item" data-page="settings" title="Configurações" onclick="navigate('settings')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="3"/><path d="m19.4 15 .1.1 1.1.9-1.5 2.6-1.4-.5a7.9 7.9 0 0 1-1.8 1l-.3 1.5h-3l-.3-1.5a7.9 7.9 0 0 1-1.8-1l-1.4.5-1.5-2.6 1.1-.9a7.3 7.3 0 0 1 0-2l-1.1-.9 1.5-2.6 1.4.5a7.9 7.9 0 0 1 1.8-1l.3-1.5h3l.3 1.5a7.9 7.9 0 0 1 1.8 1l1.4-.5 1.5 2.6-1.1.9a7.3 7.3 0 0 1 0 2Z" transform="translate(-.8 -1) scale(.98)"/></svg>Configurações</button>
+      <button class="nav-item active" data-page="dashboard" title="Visão geral" onclick="navigate('dashboard')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="nav-shape-fill" x="3" y="3" width="12" height="11" rx="3.2"/><rect x="18" y="3" width="11" height="17" rx="3.2"/><rect x="3" y="17" width="12" height="12" rx="3.2"/><rect class="nav-shape-fill" x="18" y="23" width="11" height="6" rx="2.5"/><path d="M7 9h4m-2-2v4M7 23h4"/></svg>Visão geral</button>
+      <button class="nav-item" data-page="contacts" title="Contatos" onclick="navigate('contacts')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="nav-shape-fill" x="3.5" y="4" width="25" height="24" rx="6"/><circle cx="12.5" cy="12" r="3.6"/><path d="M6.8 22c.5-3 2.6-4.8 5.7-4.8s5.2 1.8 5.7 4.8M21 11h3.5M21 16h3.5M21 21h3.5"/></svg>Contatos<span class="nav-count" id="contactCount">0</span></button>
+      <button class="nav-item" data-page="whatsapp" title="WhatsApp" onclick="navigate('whatsapp')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="nav-shape-fill" d="M16 3.6a12 12 0 0 0-10.5 18L3.8 28l6.5-1.7A12 12 0 1 0 16 3.6Z"/><path d="M11.8 10.1c.7-.8 1.4-.5 1.7.1l1.4 2.2c.3.6 0 1-.4 1.4l-.9.9c1 2.1 2.5 3.7 4.6 4.6l1-1c.4-.4.9-.5 1.4-.2l2.2 1.3c.7.4.7 1.1.2 1.7-1.2 1.6-3.2 1.6-5.3.6-3.7-1.6-6.3-4.3-7.6-7.8-.5-1.7.1-2.9 1.7-3.8Z"/></svg>WhatsApp<span class="nav-count" style="color:#88c98a;border-color:#315b3b;background:#18261c">Preparar</span></button>
+      <button class="nav-item" data-page="pipeline" title="Funil de vendas" onclick="navigate('pipeline')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="5" width="7" height="12" rx="2.5" class="nav-shape-fill"/><rect x="12.5" y="5" width="7" height="17" rx="2.5"/><rect x="21.5" y="5" width="7" height="22" rx="2.5" class="nav-shape-fill"/><path d="M6 22.5h2M15 26.5h2"/><path d="m24 13 1.1 1.4 2-2.6"/></svg>Funil de vendas</button>
+      <button class="nav-item" data-page="reports" title="Gestão e análise" onclick="navigate('reports')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="nav-shape-fill" x="3.5" y="4" width="25" height="24" rx="6"/><path d="M8.5 22v-5m5 5v-9m5.5 9v-6m5 6V9"/><path d="m8 12 5-5 5 3 6-5"/><circle cx="24" cy="5" r="1.2" fill="currentColor" stroke="none"/></svg>Gestão e análise</button>
+        <button class="nav-item" data-page="settings" title="Configurações" onclick="navigate('settings')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect class="nav-shape-fill" x="4" y="4" width="24" height="24" rx="7"/><path d="M10 9v14M16 9v14M22 9v14"/><rect x="7.5" y="12" width="5" height="5" rx="2" fill="var(--side)"/><rect x="13.5" y="18" width="5" height="5" rx="2" fill="var(--side)"/><rect x="19.5" y="9" width="5" height="5" rx="2" fill="var(--side)"/></svg>Configurações</button>
+      <button class="nav-item" type="button" data-page="help" title="Central de ajuda" onclick="navigate('help')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="nav-shape-fill" d="M5 15a11 11 0 1 1 6 9.8L5 27l1.4-5.6A11 11 0 0 1 5 15Z"/><path d="M12.3 11.6a3.8 3.8 0 1 1 5.9 3.2c-1.7.9-2.2 1.7-2.2 2.7"/><circle cx="16" cy="21" r="1.25" fill="currentColor" stroke="none"/></svg>Central de ajuda</button>
+      <button class="nav-item crm-admin-support-nav" id="crmSupportAdminNav" type="button" data-page="support-inbox" title="Pedidos de ajuda" onclick="navigate('support-inbox')" hidden><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path class="nav-shape-fill" d="M5.5 7.5h21a2 2 0 0 1 2 2v16a2 2 0 0 1-2 2h-21a2 2 0 0 1-2-2v-16a2 2 0 0 1 2-2Z"/><path d="m4 12 7 7h10l7-7M12 23h8"/><path d="M13 4h6m-3-3v6"/><circle cx="25" cy="6" r="2.6" fill="currentColor" stroke="var(--side)"/></svg>Pedidos de ajuda<span class="nav-count crm-support-count" id="crmSupportCount" hidden>0</span></button>
     </nav>
     <div class="side-bottom">
-      <div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Consulte o guia rápido para aproveitar melhor seu CRM.</p><button onclick="showToast('Central de ajuda demonstrativa.')">Acessar central ↗</button></div><div class="profile"></div></div>
+      <div class="help-card"><div class="help-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></div><strong>Precisa de ajuda?</strong><p>Envie dúvidas e sugestões diretamente à administração.</p><button onclick="navigate('help')">Acessar central ↗</button></div><div class="profile"></div></div>
   </aside>
   <main class="main">
-    <header class="topbar"><button class="top-action mobile-menu" aria-label="Abrir menu" onclick="toggleSidebar(true)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="showToast('Central de ajuda demonstrativa.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button></header>
+    <header class="topbar"><button class="top-action mobile-menu" aria-label="Abrir menu" onclick="toggleSidebar(true)"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><path d="M4 6h16M4 12h16M4 18h16"/></svg></button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="navigate('help')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button></header>
     <div class="main-inner" id="mainContent"></div>
   </main>
 </div>
@@ -1024,6 +1073,9 @@ body[data-theme="light"] .nav-item[data-page="pipeline"]>svg{color:var(--crm-acc
   <footer><button type="button" class="btn ghost small" onclick="dismissCrmLeadNotice()">Depois</button><button type="button" class="btn primary" onclick="openCrmLeadNotice()">Ver funil <svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></footer>
 </aside>
 
+<aside class="crm-new-lead-notice crm-support-notice" id="crmSupportNotice" aria-label="Pedidos de ajuda" hidden>
+<header class="crm-notice-header"><div class="crm-notice-logo"><img src="cirandae-logo.svg" alt="Logo CIRANDAÊ"></div><div class="crm-notice-brand"><strong>CIRANDAÊ CRM</strong><small>Central de atendimento interno</small></div><button class="icon-button crm-notice-close" type="button" aria-label="Fechar aviso" onclick="dismissCrmSupportNotice()"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button></header>
+<div role="status" aria-live="polite"><div class="crm-notice-heading"><span class="crm-notice-pulse" aria-hidden="true"></span><h3 id="crmSupportNoticeTitle">Novo pedido de ajuda</h3></div><p id="crmSupportNoticeText">Uma solicitação aguarda sua atenção.</p></div><footer><button type="button" class="btn ghost small" onclick="dismissCrmSupportNotice()">Depois</button><button type="button" class="btn primary" onclick="openCrmSupportNotice()">Ler pedidos</button></footer></aside>
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 <div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.03em">Cirandaê CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
 
@@ -1168,6 +1220,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.10.0-preferencias-pessoais-20261121"></script>
+<script src="integration.js?v=1.11.0-central-ajuda-20261121"></script>
 </body>
 </html>
