@@ -662,8 +662,8 @@ body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,va
 .board-layout-switch{display:inline-flex;align-items:center;gap:3px;padding:3px;border:1px solid var(--line2);background:var(--panel2);border-radius:9px}
 .board-layout-switch button{display:flex;align-items:center;gap:5px;padding:6px 9px;font:inherit;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:6px;cursor:pointer;white-space:nowrap}
 .board-layout-switch button.active{background:var(--crm-tint);color:var(--crm-accent-ink);border-color:color-mix(in srgb,var(--accent) 35%,var(--line));font-weight:700}
-.pipeline-board.board-compact{grid-template-columns:none!important;grid-auto-columns:184px!important;gap:8px!important;align-items:stretch;overflow-x:auto;overflow-y:hidden}
-.pipeline-board.board-classic{grid-template-columns:none!important;grid-auto-columns:198px!important;align-items:start;overflow-x:auto}
+.pipeline-board.board-compact{grid-template-columns:none!important;grid-auto-columns:210px!important;gap:8px!important;align-items:stretch;overflow-x:auto;overflow-y:hidden}
+.pipeline-board.board-classic{grid-template-columns:none!important;grid-auto-columns:220px!important;align-items:start;overflow-x:auto}
 .pipeline-board.board-compact .stage-column,.pipeline-board.board-classic .stage-column{min-width:0;max-width:none;display:flex;flex-direction:column;border:1px solid var(--line2);border-top:3px solid color-mix(in srgb,var(--accent) 65%,var(--line2));border-radius:11px;box-sizing:border-box;background:var(--panel2);overflow:visible}
 .pipeline-board.board-compact .stage-column{height:clamp(370px,calc(100dvh - 220px),730px);min-height:370px}
 .pipeline-board.board-classic .stage-column{height:auto;min-height:170px}
@@ -739,7 +739,7 @@ body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,va
 .contact-linked-lead>strong{overflow-wrap:anywhere;min-width:0}
 .contact-linked-lead>span{color:var(--crm-accent-ink);white-space:nowrap;flex:none;font-size:10px}
 .contact-view-footer{display:flex;justify-content:flex-end;padding:12px 19px;border-top:1px solid var(--line)}
-@media(max-width:760px){.pipeline-board.board-compact{grid-auto-columns:176px!important}.pipeline-board.board-compact .stage-column{height:clamp(340px,calc(100dvh - 195px),650px);min-height:340px}.board-layout-toolbar>small{flex-basis:100%}}
+@media(max-width:760px){.pipeline-board.board-compact{grid-auto-columns:196px!important}.pipeline-board.board-compact .stage-column{height:clamp(340px,calc(100dvh - 195px),650px);min-height:340px}.board-layout-toolbar>small{flex-basis:100%}}
 @media(max-width:390px){.contact-detail-grid{grid-template-columns:1fr}}
 @media(prefers-reduced-motion:reduce){.pipeline-board .crm-lead-card{transition:none!important}.pipeline-board .crm-lead-card:hover{transform:none!important}}
 
@@ -1039,6 +1039,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.8.4-contato-interno-20261121"></script>
+<script src="integration.js?v=1.8.5-cards-mais-largos-20261121"></script>
 </body>
 </html>
