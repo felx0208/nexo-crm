@@ -176,6 +176,14 @@
     return out;
   }
 
+  async function getAllRows(buildQuery) {
+    const all=[],size=500;
+    for(let offset=0;;offset+=size){
+      const rows=throwIfError(await buildQuery().range(offset,offset+size-1))||[];
+      all.push(...rows);
+      if(rows.length<size)return all;
+    }
+  }
   async function api(action, method='GET', body=null, query={}) {
     const client = sb();
     const d = body || {};
@@ -225,12 +233,12 @@
 
     if (action === 'contacts') {
       if (method === 'GET') {
-        let request = client.from('contacts')
-          .select('*,owner:users!contacts_owner_id_fkey(name)')
-          .is('deleted_at', null).order('created_at',{ascending:false}).limit(500);
         const safeQuery = String(query.q || '').normalize('NFKC').replace(/[%_(),]/g, ' ').replace(/[^\p{L}\p{N}\s@.+-]/gu, '').replace(/\s+/g, ' ').trim().slice(0, 100);
-        if (safeQuery) request = request.or(`name.ilike.%${safeQuery}%,company_name.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%`);
-        const data = throwIfError(await request);
+        const data=await getAllRows(()=>{
+          let request=client.from('contacts').select('*,owner:users!contacts_owner_id_fkey(name)').is('deleted_at',null).order('created_at',{ascending:false}).order('id',{ascending:false});
+          if(safeQuery)request=request.or(`name.ilike.%${safeQuery}%,company_name.ilike.%${safeQuery}%,email.ilike.%${safeQuery}%`);
+          return request;
+        });
         return {data:(data||[]).map(r=>({...r,owner_name:r.owner?.name||null}))};
       }
       if (method === 'POST') {
@@ -269,9 +277,9 @@
 
     if (action === 'deals') {
       if (method === 'GET') {
-        const data = throwIfError(await client.from('deals')
+        const data=await getAllRows(()=>client.from('deals')
           .select('*,contact:contacts!deals_contact_id_fkey(name,company_name,last_contact_at),stage:pipeline_stages!deals_stage_id_fkey(name,is_won,is_lost),owner:users!deals_owner_id_fkey(name)')
-          .is('deleted_at',null).order('created_at',{ascending:false}).limit(500));
+          .is('deleted_at',null).order('created_at',{ascending:false}).order('id',{ascending:false}));
         return {data:(data||[]).map(r=>({...r,contact_name:r.contact?.name||'',contact_company_name:r.contact?.company_name||'',contact_last_contact_at:r.contact?.last_contact_at||null,stage_name:r.stage?.name||'',is_won:r.stage?.is_won||false,is_lost:r.stage?.is_lost||false,owner_name:r.owner?.name||null}))};
       }
       if (method === 'PATCH' && d.stage_id !== undefined && !Object.prototype.hasOwnProperty.call(d,'title')) {
@@ -361,9 +369,9 @@
 
     if (action === 'activities') {
       if (method === 'GET') {
-        const data = throwIfError(await client.from('activities')
+        const data=await getAllRows(()=>client.from('activities')
           .select('*,user:users!activities_user_id_fkey(name),contact:contacts!activities_contact_id_fkey(name),deal:deals!activities_deal_id_fkey(title)')
-          .order('created_at',{ascending:false}).limit(500));
+          .order('created_at',{ascending:false}).order('id',{ascending:false}));
         return {data:(data||[]).map(r=>({...r,user_name:r.user?.name||'Usuário',contact_name:r.contact?.name||'',deal_title:r.deal?.title||''}))};
       }
       if (method === 'POST') {
@@ -1246,13 +1254,14 @@
     return activities.filter(a=>Number(a.deal_id)===Number(d.id)||(!a.deal_id&&Number(a.contact_id)===Number(d.contact_id))).slice().sort((a,b)=>historyDate(b).localeCompare(historyDate(a))||Number(b.id)-Number(a.id));
   }
   function dealHistorySummary(d){
-    const latest=dealHistoryRows(d)[0];
+    const entries=dealHistoryRows(d).filter(a=>!['Lead atualizado','Lead adicionado','Novo contato cadastrado junto ao lead'].includes(a.title));
+    const latest=entries[0];
     if(!latest)return '<div class="deal-history-chip">'+ico('clock',12)+' Histórico · sem data</div>';
     const days=Math.max(0,Math.floor((Date.now()-new Date(historyDate(latest)+'T00:00:00').getTime())/86400000));
-    return '<div class="deal-history-chip">'+ico('clock',12)+' Histórico · '+(Number.isFinite(days)?(days===0?'hoje':days+' d atrás'):'sem data')+'</div>';
+    return '<div class="deal-history-chip">'+ico('clock',12)+' Histórico · '+entries.length+' · '+(Number.isFinite(days)?(days===0?'hoje':days+' d atrás'):'sem data')+'</div>';
   }
   function historyListMarkup(d,activities=state.activities||[]){
-    const rows=dealHistoryRows(d,activities),contact=(state.contacts||[]).find(c=>Number(c.id)===Number(d.contact_id));
+    const rows=dealHistoryRows(d,activities).filter(a=>!['Lead atualizado','Lead adicionado','Novo contato cadastrado junto ao lead'].includes(a.title)),contact=(state.contacts||[]).find(c=>Number(c.id)===Number(d.contact_id));
     const legacy=String(contact?.notes||'').trim();
     const items=rows.map(a=>'<div class="lead-history-entry"><time>'+esc(historyDate(a)?analyticsDateLabel(historyDate(a)):'Data não registrada')+'</time><div><strong>'+esc(a.title||'Atualização')+'</strong><p>'+esc(a.body||'')+'</p></div></div>').join('');
     return items+(legacy?'<div class="lead-history-entry"><time>Data não registrada</time><div><strong>Relato anterior</strong><p>'+esc(legacy)+'</p></div></div>':'')||'<p class="card-sub">Nenhum histórico registrado ainda.</p>';
@@ -1260,9 +1269,8 @@
   async function loadFullDealHistory(d){
     const el=document.getElementById('dealHistoryList');if(!el)return;
     try{
-      const reply=await sb().from('activities').select('id,deal_id,contact_id,type,title,body,metadata,created_at').or('deal_id.eq.'+Number(d.id)+',and(deal_id.is.null,contact_id.eq.'+Number(d.contact_id)+')').order('created_at',{ascending:false}).limit(1000);
-      if(reply.error)throw reply.error;
-      if(modalType==='deal'&&Number(editingId)===Number(d.id)&&document.getElementById('dealHistoryList')===el)el.innerHTML=historyListMarkup(d,reply.data||[]);
+      const rows=await getAllRows(()=>sb().from('activities').select('id,deal_id,contact_id,type,title,body,metadata,created_at').or('deal_id.eq.'+Number(d.id)+',and(deal_id.is.null,contact_id.eq.'+Number(d.contact_id)+')').order('created_at',{ascending:false}).order('id',{ascending:false}));
+      if(modalType==='deal'&&Number(editingId)===Number(d.id)&&document.getElementById('dealHistoryList')===el)el.innerHTML=historyListMarkup(d,rows);
     }catch(e){console.warn('Histórico adicional não carregado:',e.message);}
   }
   window.dealCard = function(d) {
@@ -1868,7 +1876,7 @@
 
         const previousDeal=editingId?(state.deals||[]).find(x=>Number(x.id)===Number(editingId)):null;
         const historyNote=String(d.history_note||'').trim(),historyDay=String(d.history_date||'').trim();
-        if(historyNote&&(!historyDay||historyDay>localDateIso()||!analyticsDate(historyDay)))throw new Error('Informe uma data válida para o histórico.');
+        if(historyNote&&(!historyDay||historyDay>localDateIso()||!validImportDate(historyDay)))throw new Error('Informe uma data válida para o histórico.');
         const previousStageId=previousDeal?Number(previousDeal.stage_id):null;
         const amount=stageDisplaysValue(selectedStage)?parseDealAmount(d.value):Number(previousDeal?.value||0);
         if(stageDisplaysValue(selectedStage)&&amount===null)throw new Error('Informe o valor da negociação para salvar o card.');
