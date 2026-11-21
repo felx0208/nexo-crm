@@ -666,15 +666,15 @@
     // A ideia é evitar cinza esverdeado fixo: azul gera cinza azulado, roxo cinza arroxeado, etc.
     const dark = safeTheme === 'dark';
     const surfaces = {
-      '--bg': mixHexColor(safeAccent, dark ? '#0a0d12' : '#f5f7fa', dark ? .025 : .025),
-      '--side': mixHexColor(safeAccent, dark ? '#10141b' : '#ffffff', dark ? .035 : .035),
-      '--panel': mixHexColor(safeAccent, dark ? '#151a22' : '#ffffff', dark ? .045 : .025),
-      '--panel2': mixHexColor(safeAccent, dark ? '#1a2029' : '#f5f7fb', dark ? .105 : .065),
-      '--line': mixHexColor(safeAccent, dark ? '#29313d' : '#dce3ec', dark ? .13 : .10),
-      '--line2': mixHexColor(safeAccent, dark ? '#384351' : '#cbd5e1', dark ? .17 : .12),
+      '--bg': mixHexColor(safeAccent, dark ? '#0a0d12' : '#dce4ed', dark ? .025 : .035),
+      '--side': mixHexColor(safeAccent, dark ? '#10141b' : '#d4deea', dark ? .035 : .04),
+      '--panel': mixHexColor(safeAccent, dark ? '#151a22' : '#eaf0f5', dark ? .045 : .025),
+      '--panel2': mixHexColor(safeAccent, dark ? '#1a2029' : '#e2eaf2', dark ? .105 : .035),
+      '--line': mixHexColor(safeAccent, dark ? '#29313d' : '#c5d1df', dark ? .13 : .08),
+      '--line2': mixHexColor(safeAccent, dark ? '#384351' : '#b3c2d2', dark ? .17 : .08),
       '--text': dark ? '#eef2f7' : '#1d2734',
-      '--muted': dark ? '#a0a9b5' : '#687586',
-      '--dim': dark ? '#74808e' : '#8b96a5',
+      '--muted': dark ? '#a0a9b5' : '#526275',
+      '--dim': dark ? '#74808e' : '#66788a',
       '--white': dark ? '#ffffff' : '#1d2734',
       '--soft': mixHexColor(safeAccent, dark ? '#d9e1eb' : '#e6edf5', dark ? .08 : .07)
     };
@@ -1058,7 +1058,7 @@
     for(const activity of (state.activities||[])){
       const type=String(activity.type||'').toLowerCase();
       if(!CONTACT_TOUCH_TYPES.has(type))continue;
-      const date=parseActivityTime(activity.created_at);
+      const date=parseActivityTime(activity.metadata?.event_date ? activity.metadata.event_date+'T12:00:00' : activity.created_at);
       const dealId=Number(activity.deal_id)||null;
       const contactId=Number(activity.contact_id)||dealContacts.get(Number(dealId))||null;
       linkTouch(date,({call:'ligação',meeting:'reunião',email:'e-mail'})[type]||'interação',contactId,dealId);
@@ -1470,7 +1470,7 @@
     const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle" role="group" aria-label="Visualização do funil"><button type="button" class="${pipelineViewMode==='board'?'active':''}" aria-pressed="${pipelineViewMode==='board'}" onclick="setPipelineViewMode('board')">${ico('git-branch',13)} Funil</button><button type="button" class="${pipelineViewMode==='analysis'?'active':''}" aria-pressed="${pipelineViewMode==='analysis'}" onclick="setPipelineViewMode('analysis')">${ico('chart',13)} Análise</button></div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
     const board=`<div class="pipeline-board">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada; o card de teste não entra nos indicadores.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em negociação</div><div class="card-sub">Soma das oportunidades na coluna Negociação.</div></div><strong>${money(deals.filter(d=>dealIsOpen(d)&&dealDisplaysValue(d)).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
-    const actions=(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Adicionar lead',"openModal('deal')",true,'target');
+    const actions=(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Importar leads',"openLeadImportSettings()",false,'download')+button('Adicionar lead',"openModal('deal')",true,'target');
     return `${pageHeader('LEADS','Funil de vendas','Acompanhe os leads, identifique oportunidades e priorize o próximo contato.',actions)}${controls}${canManage&&pipelineViewMode==='board'?stageCreator:''}${pipelineViewMode==='analysis'?renderPipelineAnalysis(deals,stages):board}`;
   };
   function localMidnight(date=new Date()) { const d=new Date(date); d.setHours(0,0,0,0); return d; }
@@ -1931,6 +1931,7 @@
   function leadImportSettingsMarkup(){
     return '<h3 class="settings-section-title">Importação em lote de leads</h3><p class="settings-section-desc">Inclua contatos e cards no mesmo envio, com prévia, validação e proteção contra duplicados.</p><div class="import-steps"><div><b>01</b><strong>Baixe o modelo</strong><p>Use as colunas exatamente como no arquivo.</p><button type="button" class="btn primary" onclick="downloadLeadTemplate(true)">'+ico('download',15)+' Modelo Excel</button> <button type="button" class="btn ghost" onclick="downloadLeadTemplate(false)">'+ico('download',15)+' CSV</button></div><div><b>02</b><strong>Preencha os leads</strong><p>Nome do lead obrigatório. Etapa padrão: Prospecção. Contato, e-mail e responsável são opcionais. Valor obrigatório em Negociação ou Fechado.</p></div><div><b>03</b><strong>Envie a planilha</strong><p>Arquivos .xlsx ou .csv, até 500 linhas por envio.</p><input id="leadImportFile" type="file" accept=".xlsx,.csv" onchange="previewLeadImport(this)" hidden><button class="btn ghost" type="button" onclick="document.getElementById(\'leadImportFile\').click()">'+ico('plus',15)+' Selecionar planilha</button></div></div><div class="import-fields"><strong>Colunas do modelo</strong><div>'+importLeadHeaders.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div><p>Use os nomes das etapas e responsáveis cadastrados. Data do histórico: AAAA-MM-DD, DD/MM/AAAA ou data do Excel. A primeira linha deve conter os títulos.</p></div><div id="leadImportPreview">'+leadImportPreviewMarkup()+'</div>';
   }
+  window.openLeadImportSettings=function(){activeSettings='importacao';window.navigate('settings');};
   window.downloadLeadTemplate=function(asExcel){
     if(asExcel&&window.XLSX){
       const wb=XLSX.utils.book_new(),ws=XLSX.utils.aoa_to_sheet([importLeadHeaders]);
