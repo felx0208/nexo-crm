@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b0c0e" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="cirandae-logo.svg">
 <title>Cirandaê CRM</title>
 <style>
@@ -754,6 +754,43 @@ body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,va
 .crm-channel-tag{display:inline-flex;align-items:center;justify-content:center;flex:none;width:19px;height:19px;background:var(--crm-tint);color:var(--crm-accent-ink);border-radius:5px}
 .crm-lead-close{text-align:right;font-size:9px;color:var(--muted);margin-top:3px}
 
+
+/* CRM 1.8.2 — tipografia orgânica exclusiva dos cards de leads */
+.pipeline-board .crm-lead-card,
+.pipeline-board .crm-lead-card button{
+  font-family:"Nunito","Manrope",ui-rounded,"Segoe UI",sans-serif;
+  font-synthesis:none;
+}
+.pipeline-board .crm-lead-head strong{
+  font-size:12px!important;font-weight:850!important;
+  letter-spacing:-.01em!important;line-height:1.32!important;
+}
+.pipeline-board .crm-lead-card .deal-company{
+  font-size:11px!important;font-weight:700;line-height:1.4!important;
+}
+.pipeline-board .crm-lead-meta .deal-history-chip,
+.pipeline-board .crm-lead-meta .deal-contact-recency,
+.pipeline-board .crm-lead-meta .deal-stage-age{
+  font-size:10px!important;font-weight:650;line-height:1.35!important;
+}
+.pipeline-board .crm-lead-card .deal-foot{
+  font-size:11px!important;font-weight:750;
+}
+.pipeline-board .crm-lead-card .tiny-avatar{
+  font-size:9px;font-weight:850;
+}
+.pipeline-board .crm-lead-card .card-contact-button{
+  font-size:10px;font-weight:800;line-height:1.2;
+}
+.pipeline-board .crm-lead-card .deal-price{
+  font-size:15px;font-weight:900;letter-spacing:-.02em;
+}
+.pipeline-board .crm-lead-card .deal-risk-tag,
+.pipeline-board .crm-lead-card .deal-followup-alert,
+.pipeline-board .crm-lead-card .crm-lead-close{
+  font-weight:700;
+}
+
 </style>
 </head>
 <body>
@@ -951,6 +988,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.8.1-filtro-canais-20261121"></script>
+<script src="integration.js?v=1.8.2-tipografia-cards-20261121"></script>
 </body>
 </html>
