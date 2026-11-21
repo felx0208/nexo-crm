@@ -1250,7 +1250,7 @@
     if(!view)return;
     const f=view.filters||{}; activeSavedViewId=String(view.id);
     if(view.entity_type==='contacts') { searchQuery=String(f.query||''); contactFilter=String(f.status||'Todos'); navigate('contacts'); }
-    else if(view.entity_type==='deals') { pipelineSearchQuery=String(f.query||''); pipelineViewMode='board'; pipelineChannelFilter=['all','email','phone'].includes(f.channel)?f.channel:'all'; navigate('pipeline'); }
+    else if(view.entity_type==='deals') { pipelineSearchQuery=String(f.query||''); pipelineViewMode='board'; pipelineChannelFilter=['all','email','phone','decision'].includes(f.channel)?f.channel:'all'; navigate('pipeline'); }
     else if(view.entity_type==='tasks') { taskFilter=String(f.status||'Todas'); navigate('tasks'); }
   };
   window.deleteSavedView = async function(id) {
@@ -1508,19 +1508,34 @@
     if(phone.length>=8)return 'phone';
     return 'none';
   }
-  function channelMatches(d){return pipelineChannelFilter==='all'||dealChannel(d)===pipelineChannelFilter;}
+  function normalizedDecisionName(value){
+    return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
+  }
+  function dealHasDecisionContact(d){
+    const c=(state.contacts||[]).find(x=>Number(x.id)===Number(d.contact_id));
+    if(!c||dealChannel(d)==='none')return false;
+    const contactName=normalizedDecisionName(c.name);
+    if(!contactName||['nao informado','nao informada','sem contato','sem nome','contato nao informado','nome nao informado','a confirmar','desconhecido','desconhecida'].includes(contactName))return false;
+    const establishment=normalizedDecisionName(c.company_name||c.company||d.company||d.title);
+    const title=normalizedDecisionName(d.title);
+    return Boolean(establishment&&contactName!==establishment&&contactName!==title);
+  }
+  function matchesPipelineFilter(d,key){
+    return key==='all'||(key==='decision'?dealHasDecisionContact(d):dealChannel(d)===key);
+  }
+  function channelMatches(d){return matchesPipelineFilter(d,pipelineChannelFilter);}
   function currentPipelineDeals(){
     const id=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id||0);
     return (state.deals||[]).filter(d=>!id||Number(d.pipeline_id)===id);
   }
   function channelCountMarkup(deals){
-    return [['all','Todos','list'],['email','E-mail','mail'],['phone','Só telefone','phone']].map(([key,label,icon])=>{
-      const count=key==='all'?deals.length:deals.filter(d=>dealChannel(d)===key).length;
-      return '<button type="button" class="'+(pipelineChannelFilter===key?'active':'')+'" aria-pressed="'+(pipelineChannelFilter===key)+'" onclick="setPipelineChannel(\''+key+'\')">'+ico(icon,13)+' '+label+' <span data-channel-count="'+key+'">'+count+'</span></button>';
+    return [['all','Todos','list'],['email','E-mail','mail'],['phone','Só telefone','phone'],['decision','Com Decisores','contact-round']].map(([key,label,icon])=>{
+      const count=deals.filter(d=>matchesPipelineFilter(d,key)).length;
+      return '<button type="button" class="'+(pipelineChannelFilter===key?'active':'')+'" aria-pressed="'+(pipelineChannelFilter===key)+'"'+(key==='decision'?' title="Contato com e-mail ou telefone cadastrado e nome diferente do estabelecimento"':'')+' onclick="setPipelineChannel(\''+key+'\')">'+ico(icon,13)+' '+label+' <span data-channel-count="'+key+'">'+count+'</span></button>';
     }).join('');
   }
   const channelLabel={email:'Com e-mail',phone:'Somente telefone',none:'Sem canal cadastrado'};
-  window.setPipelineChannel=function(key){pipelineChannelFilter=['all','email','phone'].includes(key)?key:'all';pipelineViewMode='board';render();};
+  window.setPipelineChannel=function(key){pipelineChannelFilter=['all','email','phone','decision'].includes(key)?key:'all';pipelineViewMode='board';render();};
   window.dealCard = function(d) {
     const meta=dealRiskMeta(d),stageAge=meta.age;
     const name=dealContactLabel(d),channel=dealChannel(d);
@@ -1685,7 +1700,7 @@
   function pipelineSearchMatchesMarkup(query) {
     if(!String(query||'').trim())return '';
     const matches=getPipelineSearchMatches(query);
-    if(!matches.length)return `<section id="pipelineSearchPreview" class="pipeline-search-matches is-empty"><div class="pipeline-search-heading"><strong>Nenhuma correspondência próxima</strong><span>Os cards do canal selecionado continuam visíveis abaixo.</span></div></section>`;
+    if(!matches.length)return `<section id="pipelineSearchPreview" class="pipeline-search-matches is-empty"><div class="pipeline-search-heading"><strong>Nenhuma correspondência próxima</strong><span>Os cards do filtro selecionado continuam visíveis abaixo.</span></div></section>`;
     return `<section id="pipelineSearchPreview" class="pipeline-search-matches"><div class="pipeline-search-heading"><strong>Resultados parecidos com “${esc(query)}”</strong><span>${matches.length} sugestão(ões) · os outros cards continuam visíveis</span></div><div class="pipeline-search-match-list">${matches.map(d=>`<button type="button" class="pipeline-search-match" onclick="openModal('deal',${Number(d.id)})"><span class="search-match-icon">${ico('target',14)}</span><span class="search-match-copy"><strong>${esc(d.title||'Oportunidade sem título')}</strong><small>${esc(d.contact||d.company||'Contato não informado')} · ${esc(d.stage||'Etapa não informada')}</small></span><span class="search-match-owner">${esc(d.owner||'Sem responsável')}</span>${dealDisplaysValue(d)?`<span class="search-match-value">${money(d.value)}</span>`:''}</button>`).join('')}</div></section>`;
   }
   function stageAgeText(deal) {
@@ -1760,9 +1775,9 @@
       return `<section class="stage-column ${s.is_won?'stage-won':s.is_lost?'stage-lost':''}" data-stage-column="${Number(s.id)}"><div class="stage-head"><div class="crm-stage-heading"><span class="crm-stage-icon">${ico(s.is_won?'check':s.is_lost?'x':'target',14)}</span><strong title="${esc(s.name)}">${esc(s.name)}</strong>${canManage?`<button type="button" class="crm-stage-options" title="Opções da coluna" aria-label="Opções da coluna ${esc(s.name)}" aria-expanded="false" onclick="openStageOptions(event,${Number(s.id)})">${ico('ellipsis',15)}</button>`:''}</div><div class="crm-stage-metrics"><span class="stage-summary">${ds.length} lead(s)</span>${stageDisplaysValue(s)?`<span class="crm-stage-value">${money(total)}</span>`:''}</div></div><div class="stage-cards" data-stage-dropzone="${Number(s.id)}" ondragover="allowDealDrop(event)" ondragleave="leaveDealDrop(event)" ondrop="dropDeal(event,${Number(s.id)})">${ds.map(dealCard).join('')}</div><button type="button" class="btn small ghost stage-add-deal" onclick="openModal('deal',null,${Number(s.id)})">${ico('plus',13)} Adicionar lead</button></section>`;
 
     }).join('');
-    const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle pipeline-channel-toggle" role="group" aria-label="Filtrar canal de contato">${channelCountMarkup(pipelineDeals)}</div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} de ${pipelineDeals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
+    const controls=`<div class="pipeline-toolbar"><label class="search-box pipeline-search-box">${ico('search')}<input id="pipelineSearchInput" placeholder="Buscar lead, contato ou responsável…" value="${esc(pipelineSearchQuery)}" oninput="searchPipeline(this.value)" autocomplete="off"></label><div class="pipeline-view-toggle pipeline-channel-toggle" role="group" aria-label="Filtrar leads por contato">${channelCountMarkup(pipelineDeals)}</div><span id="pipelineOpportunityCount" class="pipeline-opportunity-count">${deals.length} de ${pipelineDeals.length} oportunidade(s)</span>${savedViewsMarkup('deals')}</div>${pipelineSearchMatchesMarkup(pipelineSearchQuery)}`;
     const stageCreator=`<form id="stageCreateForm" class="stage-create-form" onsubmit="createPipelineStageFromBoard(event)"><div style="font-weight:700;font-size:13px;margin-bottom:12px">Criar nova coluna</div><div class="stage-create-grid"><div class="stage-name-field"><label for="newStageName">Nome da coluna</label><input id="newStageName" maxlength="80" placeholder="Ex.: Aguardando retorno" required></div><div><label for="newStageProbability">Probabilidade (%)</label><input id="newStageProbability" type="number" min="0" max="100" value="20"></div><div><label for="newStageType">Tipo da etapa</label><select id="newStageType"><option value="open">Em andamento</option><option value="won">Negócio ganho</option><option value="lost">Negócio perdido</option></select></div><button class="btn primary" type="submit">${ico('plus',14)} Criar coluna</button></div><p class="form-help">A coluna será salva no Supabase e ficará disponível para toda a instalação.</p></form>`;
-    const board=`<div class="board-layout-toolbar"><span>${ico('layout',14)} Exibição do funil</span><div class="board-layout-switch" role="group" aria-label="Formato das colunas"><button type="button" class="${boardLayout==='compact'?'active':''}" aria-pressed="${boardLayout==='compact'}" onclick="setBoardLayout('compact')">${ico('columns',14)} Compacto</button><button type="button" class="${boardLayout==='classic'?'active':''}" aria-pressed="${boardLayout==='classic'}" onclick="setBoardLayout('classic')">${ico('list',14)} Clássico</button></div><small>${boardLayout==='compact'?'Rolagem independente em cada coluna':'Colunas abertas; role a página inteira'}</small></div><div class="pipeline-board board-${boardLayout}">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em negociação</div><div class="card-sub">Soma das oportunidades em Negociação no canal selecionado.</div></div><strong>${money(deals.filter(d=>dealIsOpen(d)&&dealDisplaysValue(d)).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
+    const board=`<div class="board-layout-toolbar"><span>${ico('layout',14)} Exibição do funil</span><div class="board-layout-switch" role="group" aria-label="Formato das colunas"><button type="button" class="${boardLayout==='compact'?'active':''}" aria-pressed="${boardLayout==='compact'}" onclick="setBoardLayout('compact')">${ico('columns',14)} Compacto</button><button type="button" class="${boardLayout==='classic'?'active':''}" aria-pressed="${boardLayout==='classic'}" onclick="setBoardLayout('classic')">${ico('list',14)} Clássico</button></div><small>${boardLayout==='compact'?'Rolagem independente em cada coluna':'Colunas abertas; role a página inteira'}</small></div><div class="pipeline-board board-${boardLayout}">${columns||'<div class="empty"><strong>Nenhuma coluna configurada</strong>Crie uma coluna para começar.</div>'}</div><div class="deal-recency-legend pipeline-legend-below"><span><i class="legend-dot good"></i>0–6 dias</span><span><i class="legend-dot warning"></i>7–15 dias</span><span><i class="legend-dot critical"></i>Mais de 15 dias</span><span><i class="legend-dot unknown"></i>Sem interação registrada</span><span class="legend-overdue">⌛ Retorno vencido = tarefa aberta fora do prazo</span><span class="legend-stage-age">Etapa parada: 7+ dias</span></div><p class="stage-move-hint">O indicador usa contatos registrados no histórico (ligação, reunião, e-mail ou retorno concluído). Ter um contato associado ao card não basta. A idade das etapas antigas pode ser estimada.</p><div class="card pipeline-open-total"><span class="stat-icon">${ico('target')}</span><div class="pipeline-open-total-copy"><div class="card-title">Valor em negociação</div><div class="card-sub">Soma das oportunidades em Negociação no filtro selecionado.</div></div><strong>${money(deals.filter(d=>dealIsOpen(d)&&dealDisplaysValue(d)).reduce((a,d)=>a+(Number(d.value)||0),0))}</strong></div>`;
     const actions=(canManage?button('Nova coluna','toggleStageCreator()',false,'plus'):'')+button('Importar leads',"openLeadImportSettings()",false,'download')+button('Adicionar lead',"openModal('deal')",true,'target');
     return `${pageHeader('LEADS','Funil de vendas','Acompanhe os leads, identifique oportunidades e priorize o próximo contato.',actions)}${controls}${canManage?stageCreator:''}${board}`;
   };
