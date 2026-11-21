@@ -6,10 +6,14 @@
 <meta name="theme-color" content="#0b0c0e" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Nunito:wght@500;600;700;800;900&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="preload" href="https://cdn.jsdelivr.net/fontsource/fonts/nunito:vf@latest/latin-wght-normal.woff2" as="font" type="font/woff2" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400..900&display=swap" rel="stylesheet">
 <link rel="icon" type="image/svg+xml" href="cirandae-logo.svg">
 <title>Cirandaê CRM</title>
 <style>
+@font-face{font-family:"Cirandae Nunito";font-style:normal;font-weight:200 1000;font-display:swap;src:url("https://cdn.jsdelivr.net/fontsource/fonts/nunito:vf@latest/latin-wght-normal.woff2") format("woff2")}
+
 :root{--bg:#0a0b0c;--side:#101214;--panel:#151719;--panel2:#191c1f;--line:#292d31;--line2:#34393e;--text:#f2f3f4;--muted:#969da4;--dim:#697178;--white:#fff;--soft:#d5d9dc;--shadow:0 18px 60px #0007;--r:15px}
 *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 Inter,"Manrope","Segoe UI",ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,sans-serif;letter-spacing:-.01em}button,input,select,textarea{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid #aeb5bb;outline-offset:2px}a{color:inherit;text-decoration:none}.app{min-height:100vh;display:grid;grid-template-columns:248px minmax(0,1fr)}
 .sidebar{background:var(--side);border-right:1px solid var(--line);padding:25px 15px 18px;display:flex;flex-direction:column;position:fixed;inset:0 auto 0 0;width:248px;height:100vh;height:100dvh;z-index:20;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:var(--line2) transparent}.brand{display:flex;align-items:center;gap:11px;padding:0 12px 30px}.brand-mark{height:34px;width:34px;border-radius:10px;background:#ededed;color:#111;display:grid;place-items:center;font-weight:900;font-size:17px;box-shadow:0 2px 12px #fff1}.brand-name{font-size:17px;font-weight:780;letter-spacing:.12em}.brand-sub{font-size:10px;color:#70777d;letter-spacing:.18em;margin-top:1px}.workspace{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px;margin:0 3px 25px;background:#151719}.workspace-avatar{width:31px;height:31px;border-radius:9px;display:grid;place-items:center;background:#34383c;color:#f5f5f5;font-weight:700}.workspace-copy{min-width:0;flex:1}.workspace-copy strong{display:block;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.workspace-copy span{font-size:10px;color:var(--muted)}.chevron{color:var(--muted);font-size:14px}.nav-label{padding:0 12px 9px;font-size:10px;letter-spacing:.15em;font-weight:750;color:#686f75;text-transform:uppercase}.nav{display:flex;flex-direction:column;gap:4px}.nav-item{display:flex;align-items:center;gap:12px;border:0;background:transparent;color:#a2a8ae;padding:11px 12px;border-radius:10px;text-align:left;width:100%;transition:.18s}.nav-item:hover{background:#1b1e21;color:white}.nav-item.active{background:#292d31;color:#fff;box-shadow:inset 2px 0 0 #eceeef}.nav-item svg{width:18px;height:18px;stroke:currentColor;flex:none}.nav-item .nav-count{margin-left:auto;font-size:11px;border:1px solid #353a3e;background:#202326;padding:2px 7px;border-radius:6px;color:#bfc4c8}.side-bottom{margin-top:auto}.help-card{border:1px solid var(--line);border-radius:12px;padding:13px;margin:12px 3px 17px;background:linear-gradient(145deg,#191c1f,#121416)}.help-icon{height:28px;width:28px;border-radius:8px;background:#2b2f33;display:grid;place-items:center;margin-bottom:12px;color:#e9eaeb}.help-card strong{display:block;font-size:12px;margin-bottom:5px}.help-card p{font-size:11px;line-height:1.5;color:var(--muted);margin:0 0 12px}.help-card button{border:1px solid #41464b;border-radius:7px;background:#262a2e;color:#eee;padding:7px 9px;font-size:11px}.profile{border-top:1px solid var(--line);padding:16px 7px 0;display:flex;align-items:center;gap:10px}.profile-pic{height:34px;width:34px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(140deg,#d5d7d8,#656b70);color:#101214;font-weight:800;font-size:11px}.profile-info{flex:1;min-width:0}.profile-info strong{display:block;font-size:12px}.profile-info span{font-size:10px;color:var(--muted)}.icon-button{background:transparent;border:0;color:var(--muted);padding:6px;border-radius:7px;display:grid;place-items:center}.icon-button:hover{background:#292d31;color:#fff}.icon-button svg{width:17px;height:17px;stroke:currentColor}
@@ -791,6 +795,46 @@ body[data-theme="light"]{--crm-accent-ink:color-mix(in srgb,var(--accent) 65%,va
   font-weight:700;
 }
 
+
+/* CRM 1.8.3 — tipografia orgânica global, legível em zoom reduzido */
+:root{--crm-font:"Cirandae Nunito","Nunito","Arial Rounded MT Bold","Trebuchet MS",system-ui,sans-serif}
+html,body{font-family:var(--crm-font)!important}
+body{font-size:14px;font-weight:650;line-height:1.48;letter-spacing:0}
+body :is(button,input,select,textarea,option,h1,h2,h3,h4,table,th,td,label,.brand-name,.card-title,.settings-section-title,.auth-brand strong,#accentHexValue,.crm-lead-card,.crm-lead-card button){font-family:var(--crm-font)!important}
+body :is(button,input,select,textarea){font-weight:700}
+body :is(strong,b,h1,h2,h3,h4){font-weight:850}
+body :is(.brand-name,.page-heading h1,.auth-panel h1,.modal-head h2){font-weight:900;letter-spacing:-.02em}
+body :is(.card-title,.settings-section-title,.task-title,.contact-name,.contact-profile h2,.negotiation-dialog h2,.report-visual h3){font-weight:850}
+body :is(.nav-item,.settings-tab){font-weight:800}
+body :is(.btn,.toolbar-select,.search-box input,.form-field input,.form-field select,.form-field textarea){font-size:13px;font-weight:750}
+body .btn.small,body .heading-actions .btn{font-size:12px}
+body :is(.card-sub,.form-help,.page-heading p,.contact-company,.activity-time,.report-visual>p,.board-layout-toolbar>small,.stage-move-hint){font-weight:650;line-height:1.45}
+body :is(.card-sub,.form-field label,.contact-company,.search-box input,.analytics-table td,.analytics-table th){font-size:12px}
+body .form-field label{font-weight:800}
+body th{font-size:11px;font-weight:850}
+body td{font-size:12px;font-weight:650}
+body .contact-name{font-size:13px;font-weight:850}
+body .stat-value{font-weight:900;letter-spacing:-.025em}
+body .pipeline-channel-toggle button,body .board-layout-switch button{font-size:12px;font-weight:800}
+body .pipeline-opportunity-count{font-size:11px!important;font-weight:750}
+body .pipeline-board .stage-head .crm-stage-heading strong{font-size:13px!important;font-weight:850!important;line-height:1.28!important}
+body .pipeline-board .stage-head .stage-summary{font-size:11px!important;font-weight:800}
+body .pipeline-board .crm-lead-card{font-family:var(--crm-font)!important;font-weight:700}
+body .pipeline-board .crm-lead-head strong{font-size:13px!important;font-weight:900!important;letter-spacing:-.005em!important;line-height:1.32!important}
+body .pipeline-board .crm-lead-card .deal-company{font-size:12px!important;font-weight:750}
+body .pipeline-board .crm-lead-meta :is(.deal-history-chip,.deal-contact-recency,.deal-stage-age){font-size:11px!important;font-weight:700;line-height:1.38!important}
+body .pipeline-board .crm-lead-card .deal-foot{font-size:11px!important;font-weight:800}
+body .pipeline-board .crm-lead-card .card-contact-button{font-family:var(--crm-font)!important;font-size:10px;font-weight:850}
+body .pipeline-board .crm-lead-card .deal-price{font-size:16px;font-weight:900}
+body .pipeline-board .stage-add-deal{font-size:11px!important;font-weight:800}
+body :is(.lead-history-entry p,.contact-detail-section p,.contact-detail-field strong){font-size:13px;font-weight:650}
+body :is(.lead-history-entry time,.lead-history-compose small,.contact-detail-field small){font-size:11px;font-weight:700}
+body .floating-stage-options button{font-weight:800;font-size:13px}
+body :is(.nav-label,.brand-sub){font-weight:800}
+body .chart text{font-family:var(--crm-font);font-weight:700}
+body :is(input,textarea)::placeholder{font-weight:650}
+@media(max-width:760px){body .pipeline-channel-toggle button{font-size:11px}body .heading-actions .btn{font-size:11px}}
+
 </style>
 </head>
 <body>
@@ -988,6 +1032,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.8.2-tipografia-cards-20261121"></script>
+<script src="integration.js?v=1.8.3-tipografia-global-20261121"></script>
 </body>
 </html>
