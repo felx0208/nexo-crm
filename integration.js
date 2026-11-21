@@ -771,12 +771,65 @@
     try{if(await queueAppearanceWrite())showToast('Sua aparência pessoal foi salva.');}
     catch(e){showToast('Preferência salva neste navegador. Não foi possível sincronizar com sua conta.');}
   };
+  // Notificações não bloqueantes de leads novos, por perfil e navegador.
+  let leadNoticeProfile=null,leadSeen=null,leadNoticePending=new Map(),leadNoticeTimer=null,leadNoticeBusy=false;
+  function leadSeenKey(id){return 'cirandae-crm-seen-leads-v1:'+id;}
+  function resetLeadNotice(id){
+    leadNoticeProfile=id;leadNoticePending=new Map();leadSeen=null;
+    try{const raw=JSON.parse(localStorage.getItem(leadSeenKey(id))||'null');if(Array.isArray(raw))leadSeen=new Set(raw.map(String));}catch(e){}
+  }
+  function renderLeadNotice(){
+    const el=document.getElementById('crmNewLeadNotice');if(!el)return;
+    if(!leadNoticePending.size){el.hidden=true;return;}
+    const rows=[...leadNoticePending.values()],count=rows.length;
+    document.getElementById('crmLeadNoticeTitle').textContent=count===1?'Um novo lead no funil!':count+' novos leads no funil!';
+    document.getElementById('crmLeadNoticeText').textContent=count===1?(rows[0].title||'Nova oportunidade cadastrada'):'Novas oportunidades foram cadastradas na CIRANDAÊ.';
+    const list=document.getElementById('crmLeadNoticeList');
+    list.textContent='';if(count>1){rows.slice(0,3).forEach(row=>{const li=document.createElement('li');li.textContent=row.title||'Lead cadastrado';list.appendChild(li);});if(count>3){const li=document.createElement('li');li.textContent='E mais '+(count-3)+' lead(s).';list.appendChild(li);}}
+    list.hidden=count<=1;
+    if(document.getElementById('authGate')?.style.display==='none')el.hidden=false;
+  }
+  function observeNewLeads(deals){
+    const id=Number(currentUser?.id);if(!id)return;
+    if(leadNoticeProfile!==id)resetLeadNotice(id);
+    const rows=(deals||[]).filter(d=>d.id!=null);
+    if(leadSeen===null)leadSeen=new Set(rows.map(d=>String(d.id)));
+    else for(const d of rows){const key=String(d.id);if(!leadSeen.has(key)){leadSeen.add(key);leadNoticePending.set(key,{id:d.id,title:d.title});}}
+    // Preserva IDs já notificados, inclusive os que foram arquivados.
+    try{localStorage.setItem(leadSeenKey(id),JSON.stringify([...leadSeen]));}catch(e){}
+    renderLeadNotice();
+  }
+  window.dismissCrmLeadNotice=function(){leadNoticePending.clear();renderLeadNotice();};
+  window.openCrmLeadNotice=async function(){
+    try{await loadRemoteState();window.navigate('pipeline');window.dismissCrmLeadNotice();}
+    catch(e){showToast('Não foi possível atualizar o funil. Tente novamente.');}
+  };
+  async function pollNewLeads(){
+    const id=Number(currentUser?.id);if(!id||leadNoticeBusy||document.hidden)return;
+    leadNoticeBusy=true;
+    try{
+      const deals=await getAllRows(()=>sb().from('deals').select('id,title').is('deleted_at',null).order('id',{ascending:true}));
+      if(Number(currentUser?.id)===id&&leadNoticeProfile===id)observeNewLeads(deals);
+    }catch(e){/* A próxima consulta recupera as novidades após reconexão. */}
+    finally{leadNoticeBusy=false;}
+  }
+  function startLeadNoticeMonitor(){
+    if(leadNoticeTimer!==null)clearInterval(leadNoticeTimer);
+    renderLeadNotice();leadNoticeTimer=setInterval(pollNewLeads,30000);
+  }
+  function stopLeadNoticeMonitor(){
+    if(leadNoticeTimer!==null)clearInterval(leadNoticeTimer);
+    leadNoticeTimer=null;leadNoticeProfile=null;leadSeen=null;leadNoticePending.clear();renderLeadNotice();
+  }
+  document.addEventListener('visibilitychange',()=>{if(!document.hidden&&currentUser&&leadNoticeTimer!==null)pollNewLeads();});
+  window.addEventListener('focus',()=>{if(currentUser&&leadNoticeTimer!==null)pollNewLeads();});
   async function loadRemoteState() {
     const [contacts, deals, tasks, activities, pipeline, settings] = await Promise.all([
       api('contacts'), api('deals'), api('tasks'), api('activities'), api('pipelines'), api('settings')
     ]);
     state.contacts = (contacts.data || []).map(mapContact);
     state.deals = (deals.data || []).map(mapDeal);
+    observeNewLeads(state.deals);
     state.tasks = (tasks.data || []).map(mapTask);
     state.activities = (activities.data || []).map(mapActivity);
     const extras = await Promise.all([
@@ -846,7 +899,7 @@
     err.textContent=message || ''; err.hidden=!message;
     document.getElementById('authGate').style.display='flex';
   }
-  function hideAuthGate() { const el=document.getElementById('authGate'); if(el) el.style.display='none'; }
+  function hideAuthGate() { const el=document.getElementById('authGate'); if(el) el.style.display='none'; startLeadNoticeMonitor(); }
 
   function showReleaseNotes() {}
   window.showReleaseNotes = showReleaseNotes;
