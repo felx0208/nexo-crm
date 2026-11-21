@@ -2593,7 +2593,7 @@
   window.whatsappPage = function() {
     return `${pageHeader('CANAIS DE ATENDIMENTO','WhatsApp','Prepare a conexão do WhatsApp Business ao Cirandaê CRM, sem vincular uma conta agora.',button('Abrir documentação da Meta',"window.open('https://developers.facebook.com/docs/whatsapp/cloud-api/overview/','_blank','noopener,noreferrer')",false,'external-link'))}
       <div class="stats" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr));margin-bottom:18px">
-        <article class="card stat-card"><div class="stat-top"><span>Status da conexão</span><span class="stat-icon"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 3a9 9 0 0 0-7.8 13.5L3 21l4.7-1.2A9 9 0 1 0 12 3Z"/><path d="M8.5 8.5c.4-.5.8-.4 1 .1l.8 1.3c.2.3.1.5-.2.8l-.4.4c.5 1.1 1.4 2 2.5 2.5l.4-.5c.2-.2.5-.3.8-.1l1.3.7c.4.2.4.6.2 1-.4.6-1 .8-1.7.8-2.4-.2-5.4-3.2-5.6-5.6 0-.6.4-1.1.9-1.4Z"/></svg></span></div><div class="stat-value" style="font-size:22px;color:var(--muted)"><span class="status muted">Ainda não conectado</span></div><div class="stat-bottom"><span class="stat-note">Nenhuma conta da Meta foi vinculada.</span></div></article>
+        <article class="card stat-card"><div class="stat-top"><span>Status da conexão</span><span class="stat-icon">${ico('whatsapp',18)}</span></div><div class="stat-value" style="font-size:22px;color:var(--muted)"><span class="status muted">Ainda não conectado</span></div><div class="stat-bottom"><span class="stat-note">Nenhuma conta da Meta foi vinculada.</span></div></article>
         <article class="card stat-card"><div class="stat-top"><span>Mensagens</span><span class="stat-icon">${ico('message-circle',17)}</span></div><div class="stat-value">—</div><div class="stat-bottom"><span class="stat-note">Disponível após ativar a integração.</span></div></article>
         <article class="card stat-card"><div class="stat-top"><span>Número comercial</span><span class="stat-icon">${ico('phone',17)}</span></div><div class="stat-value" style="font-size:16px">Não configurado</div><div class="stat-bottom"><span class="stat-note">O número será definido durante a conexão oficial.</span></div></article>
       </div>
@@ -2601,7 +2601,7 @@
         <div style="position:absolute;right:-35px;top:-55px;width:210px;height:210px;border-radius:50%;background:radial-gradient(circle,#248b4b2b 0%,#248b4b00 70%);pointer-events:none"></div>
         <div style="display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;flex-wrap:wrap">
           <div style="width:58px;height:58px;flex:none;border-radius:17px;display:grid;place-items:center;background:#183c29;border:1px solid #2f6745;color:#8ee0a7">
-            <svg viewBox="0 0 24 24" width="30" height="30" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round"><path d="M20.2 11.7a8.2 8.2 0 0 1-12.1 7.2L3 20l1.2-4.8A8.2 8.2 0 1 1 20.2 11.7Z"/><path d="M8.3 8.1c.4-.6.8-.5 1.1-.1l.9 1.5c.2.3.1.6-.2.9l-.5.5c.6 1.3 1.6 2.3 2.9 2.9l.5-.6c.2-.3.6-.4.9-.2l1.5.8c.4.2.5.7.2 1.1-.5.7-1.2 1-2 1-2.7-.2-6.2-3.7-6.4-6.4 0-.6.4-1.1 1.1-1.4Z"/></svg>
+            ${ico('whatsapp',30)}
           </div>
           <div style="flex:1;min-width:220px">
             <div class="eyebrow" style="color:#73c78c">WHATSAPP BUSINESS PLATFORM</div>
