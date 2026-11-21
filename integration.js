@@ -1913,7 +1913,7 @@
     const arr={contact:state.contacts,deal:state.deals,task:state.tasks,activity:state.activities}[type]||[];
     const item=id?arr.find(x=>Number(x.id)===Number(id)):null;
     let title='',subtitle='',fields='';
-    const ownerSelected=item?.owner_id || item?.assigned_to || '';
+    const ownerSelected=item?(item.owner_id||item.assigned_to||''):(currentUser?.role==='sales'?currentUser.id:'');
     const ownerList=ownerOptions();
     const ownerControl=selectMarkup('owner_id',ownerList,ownerSelected,ownerList.length?'Selecione o responsável':'Cadastre responsáveis em Configurações');
     const contactControl=type==='deal'?(item?lockedLeadContactMarkup(item):leadContactControl('')):selectMarkup('contact_id',contactsOptions(),item?.contact_id||'','Selecione um contato');
@@ -2220,7 +2220,6 @@
     const canManage=currentUser?.role==='admin';
     const tabs=[
       ['aparencia','Aparência'],
-      ['funil','Colunas do funil'],
       ['filtros','Filtros salvos'],
       ['campos','Campos personalizados'],
       ['importacao','Importar leads'],
@@ -2232,24 +2231,17 @@
     let contents='';
 
     if(activeSettings==='usuarios') {
-      const staff=(state.users||[]).filter(u=>u.role!=='admin').slice().sort((a,b)=>String(a.name).localeCompare(String(b.name),'pt-BR'));
-      const rows=staff.map(u=>'<tr><td>'+esc(u.name)+'</td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td><button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button></td></tr>').join('');
-      contents='<h3 class="settings-section-title">Responsáveis pelos leads</h3>'+
-        '<p class="settings-section-desc">Cadastre apenas os nomes da equipe para identificar quem acompanha cada lead. Não é necessário e-mail, senha nem login individual.</p>'+
-        '<form class="custom-field-create" onsubmit="createCrmUser(event)">'+
-          '<div class="form-grid">'+
-            '<div class="form-field"><label>Nome da pessoa *</label><input name="name" maxlength="120" required placeholder="Nome de quem vai atender os leads"></div>'+
-            
-            
-          '</div>'+
-          '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Adicionar responsável</button></div>'+
-        '</form>'+
-                '<div style="margin-top:22px"><h4 style="font-size:12px;margin:0 0 10px">Equipe cadastrada</h4>'+
-          '<div class="table-scroll"><table class="user-table"><thead><tr><th>Nome</th><th>Status</th><th>Cadastro</th></tr></thead><tbody>'+
-          (rows||'<tr><td colspan="3">Nenhum responsável cadastrado.</td></tr>')+
-          '</tbody></table></div>'+
-        '</div>'+
-        '<p class="form-help" style="margin-top:12px">Esses nomes são usados somente na atribuição de leads e tarefas. O acesso ao CRM continua protegido pela conta administradora.</p>';
+      const staff=(state.users||[]).slice().sort((a,b)=>(a.role==='admin'?-1:0)-(b.role==='admin'?-1:0)||String(a.name).localeCompare(String(b.name),'pt-BR'));
+      const rows=staff.map(u=>'<tr><td><strong>'+esc(u.name)+'</strong></td><td>'+esc(u.email||'Sem login vinculado')+'</td><td><span class="status '+(u.role==='admin'?'light':'muted')+'">'+(u.role==='admin'?'Administrador':'Usuário comum')+'</span></td><td><span class="status '+(Number(u.is_active)!==0?'light':'muted')+'">'+(Number(u.is_active)!==0?'Ativo':'Desativado')+'</span></td><td>'+(u.role==='admin'?'<span class="form-help">Acesso protegido</span>':'<button type="button" class="inline-action" onclick="toggleUser('+Number(u.id)+','+(Number(u.is_active)===0?'1':'0')+')">'+(Number(u.is_active)!==0?'Desativar':'Reativar')+'</button>')+'</td></tr>').join('');
+      contents='<h3 class="settings-section-title">Usuários e responsáveis</h3>'+
+        '<p class="settings-section-desc">Confira os acessos vinculados à equipe e o perfil responsável por cada lead. Somente o administrador pode gerenciar usuários e configurações administrativas.</p>'+
+        '<div class="table-scroll"><table class="user-table"><thead><tr><th>Perfil no CRM</th><th>E-mail de acesso</th><th>Permissão</th><th>Status</th><th>Ações</th></tr></thead><tbody>'+
+        (rows||'<tr><td colspan="5">Nenhum usuário cadastrado.</td></tr>')+'</tbody></table></div>'+
+        '<div style="margin-top:22px"><h4 style="font-size:14px;margin:0 0 10px">Adicionar responsável sem acesso</h4><p class="form-help">Cria somente um perfil para atribuição de leads. Não cria credenciais de login.</p>'+
+        '<form class="custom-field-create" onsubmit="createCrmUser(event)"><div class="form-grid">'+
+        '<div class="form-field"><label>Nome da pessoa *</label><input name="name" maxlength="120" required placeholder="Nome do responsável"></div></div>'+
+        '<div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">'+ico('plus',14)+' Adicionar responsável</button></div></form></div>'+
+        '<p class="form-help" style="margin-top:12px">Usuários comuns acessam a operação comercial compartilhada. A estrutura do funil, os usuários e as configurações administrativas são gerenciados pelo administrador.</p>';
     } else if(activeSettings==='aparencia') {
       const scaleOptions=[80,90,100,110].map(n=>'<option value="'+n+'" '+(readCrmScale()===n?'selected':'')+'>'+n+'%'+(n===80?' — padrão':'')+'</option>').join('');
       const swatches=appearancePresets.map(c=>`<button type="button" class="theme-swatch ${accent.toLowerCase()===c.hex?'selected':''}" style="--swatch:${c.hex};background:${c.hex}" title="${esc(c.name)} · ${c.hex}" aria-label="${esc(c.name)} ${c.hex}" aria-pressed="${accent.toLowerCase()===c.hex}" onclick="chooseNexoAccent('${c.hex}')"><span class="theme-swatch-check" aria-hidden="true">✓</span></button>`).join('');
@@ -2271,11 +2263,6 @@
       contents=`<h3 class="settings-section-title">Campos personalizados</h3><p class="settings-section-desc">Adicione informações específicas aos contatos e às oportunidades de recreação.</p>
         ${canManage?`<form class="custom-field-create" onsubmit="createCustomField(event)"><div class="form-grid"><div class="form-field"><label>Nome do campo</label><input name="label" maxlength="80" required placeholder="Ex.: Tipo de evento"></div><div class="form-field"><label>Aplicar em</label><select name="entity_type"><option value="contacts">Contatos</option><option value="deals">Oportunidades</option></select></div><div class="form-field"><label>Tipo de campo</label><select name="field_type" onchange="toggleCustomFieldOptions(this)"><option value="text">Texto</option><option value="number">Número</option><option value="date">Data</option><option value="select">Lista de opções</option><option value="checkbox">Caixa de seleção</option><option value="email">E-mail</option><option value="url">Link</option></select></div><div class="form-field custom-field-options-wrap" hidden><label>Opções (separadas por vírgula)</label><input name="options" placeholder="Ex.: Aniversário, Escola, Condomínio"></div></div><div style="display:flex;justify-content:flex-end;margin-top:12px"><button class="btn primary" type="submit">${ico('plus',14)} Criar campo</button></div></form>`:'<p class="form-help">Acesso de administrador necessário para alterar campos.</p>'}
         <div class="custom-field-list">${rows||'<div class="empty">Nenhum campo personalizado cadastrado.</div>'}</div><p class="form-help">Desativar um campo preserva os valores antigos.</p>`;
-    } else if(activeSettings==='funil') {
-      const pipelineId=Number(state.pipelines?.find(p=>p.is_default)?.id||state.pipelines?.[0]?.id||0);
-      const stages=(state.pipelineStages||[]).filter(st=>!pipelineId||Number(st.pipeline_id)===pipelineId).slice().sort((a,b)=>a.position-b.position);
-      const rows=stages.map((stage,i)=>`<div class="stage-manage-row"><div class="stage-number">${i+1}</div><div><label class="form-help" for="stageName-${stage.id}">Nome da coluna</label><input id="stageName-${stage.id}" maxlength="80" value="${esc(stage.name)}" ${canManage?'':'disabled'}></div><div class="stage-probability-field"><label class="form-help" for="stageProbability-${stage.id}">Probabilidade (%)</label><input id="stageProbability-${stage.id}" type="number" min="0" max="100" value="${Number(stage.probability)||0}" ${canManage?'':'disabled'}></div><div class="stage-type-field"><label class="form-help" for="stageType-${stage.id}">Classificação</label><select id="stageType-${stage.id}" ${canManage?'':'disabled'}><option value="open" ${!stage.is_won&&!stage.is_lost?'selected':''}>Em andamento</option><option value="won" ${stage.is_won?'selected':''}>Fechado</option><option value="lost" ${stage.is_lost?'selected':''}>Perdido</option></select></div>${canManage?`<button class="btn small primary stage-save-button" onclick="savePipelineStage(${stage.id})">Salvar</button><button class="btn small ghost stage-delete-button" onclick="deletePipelineStage(${stage.id})" aria-label="Excluir coluna">Excluir</button>`:'<span></span><span></span>'}</div>`).join('');
-      contents=`<h3 class="settings-section-title">Colunas do funil</h3><p class="settings-section-desc">Ajuste as etapas que representam o andamento de um pedido comercial.</p><div class="stage-management-list">${rows||'<div class="empty">Nenhuma etapa cadastrada.</div>'}</div>`;
     } else if(activeSettings==='importacao') {
       contents=leadImportSettingsMarkup();
     } else if(activeSettings==='dados') {
