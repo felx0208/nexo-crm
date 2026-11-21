@@ -917,6 +917,49 @@ body .import-steps>div:first-child{background-image:radial-gradient(ellipse at 1
 body :is(button,input,select,textarea):focus-visible{outline-color:var(--crm-glow)}
 @media(prefers-reduced-motion:reduce){body .crm-lead-card{transition:none!important}}
 
+
+/* CRM 1.10 — foco visual, preferências pessoais e aviso de oportunidades */
+body .nav-item[data-page="pipeline"]{position:relative}
+body .nav-item[data-page="pipeline"]>svg{
+  color:var(--crm-glow);stroke:currentColor;filter:drop-shadow(0 0 3px color-mix(in srgb,var(--crm-glow) 74%,transparent)) drop-shadow(0 0 8px color-mix(in srgb,var(--crm-glow) 42%,transparent));
+}
+body .nav-item[data-page="pipeline"].active>svg{filter:drop-shadow(0 0 4px var(--crm-glow)) drop-shadow(0 0 11px color-mix(in srgb,var(--crm-glow) 45%,transparent))}
+body[data-theme="light"] .nav-item[data-page="pipeline"]>svg{color:var(--crm-accent-ink);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--accent) 40%,transparent))}
+.crm-new-lead-notice[hidden]{display:none!important}
+.crm-new-lead-notice{
+  position:fixed;right:24px;bottom:24px;width:min(392px,calc(100% - 48px));z-index:390;isolation:isolate;overflow:hidden;
+  padding:19px;border:1px solid color-mix(in srgb,var(--crm-glow) 43%,var(--line2));border-radius:19px;
+  background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) 29%,transparent),transparent 62%),var(--panel);
+  color:var(--text);box-shadow:0 16px 50px #0005,0 0 32px color-mix(in srgb,var(--crm-glow) 15%,transparent);
+  animation:crmLeadNoticeIn .24s ease-out;
+}
+.crm-new-lead-notice:before{position:absolute;content:"";z-index:-1;inset:0;pointer-events:none;background:radial-gradient(ellipse 180px 120px at 100% -20%,transparent 89%,color-mix(in srgb,var(--crm-glow) 20%,transparent) 90%,transparent 91%);}
+.crm-notice-header{display:flex;align-items:center;gap:12px;margin-bottom:15px}
+.crm-notice-logo{width:46px;height:46px;display:grid;place-items:center;flex:none;background:#F8F8F6;border-radius:13px;box-shadow:0 0 20px color-mix(in srgb,var(--crm-glow) 25%,transparent)}
+.crm-notice-logo img{width:34px;height:34px;object-fit:contain}
+.crm-notice-brand{flex:1;min-width:0}
+.crm-notice-brand strong{display:block;font-size:14px;letter-spacing:.015em}
+.crm-notice-brand small{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--muted);font-weight:850}
+.crm-notice-close{align-self:flex-start}
+.crm-notice-heading{display:flex;gap:8px;align-items:center;margin-bottom:7px}
+.crm-notice-heading h3{margin:0;font-size:19px;line-height:1.3;font-weight:900}
+.crm-notice-pulse{width:8px;height:8px;flex:none;border-radius:50%;background:var(--crm-glow);box-shadow:0 0 11px var(--crm-glow)}
+.crm-new-lead-notice p{font-size:13px;color:var(--muted);margin:0;overflow-wrap:anywhere}
+.crm-new-lead-notice ul{margin:9px 0 0;padding-left:20px;font-size:12px;line-height:1.55;overflow-wrap:anywhere}
+.crm-new-lead-notice footer{display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;margin-top:17px}
+.crm-new-lead-notice footer .btn.primary{font-size:12px}
+@keyframes crmLeadNoticeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@media(prefers-reduced-motion:reduce){.crm-new-lead-notice{animation:none}}
+@media(max-width:480px){.crm-new-lead-notice{right:12px;bottom:12px;width:calc(100% - 24px)}}
+.crm-password-panel{max-width:480px;padding:20px;border:1px solid var(--line2);border-radius:15px;background:radial-gradient(ellipse at 100% 0%,color-mix(in srgb,var(--crm-glow) 16%,transparent),transparent 58%),var(--panel2)}
+.crm-password-symbol{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:var(--crm-tint);color:var(--crm-accent-ink);margin-bottom:18px}
+.crm-password-panel .form-field{margin-bottom:15px}
+.crm-password-input{position:relative;display:flex;align-items:center}
+.crm-password-input input{width:100%;padding-right:42px!important}
+.crm-password-input>.icon-button{position:absolute;right:6px;background:transparent;border:0}
+.crm-password-panel .crm-password-feedback{color:#cc676b;font-weight:800;font-size:12px;line-height:1.55;overflow-wrap:anywhere;margin:8px 0 14px}
+.crm-password-panel .crm-password-feedback.success{color:var(--text);border-left:3px solid #46a484;padding-left:10px}
+
 </style>
 </head>
 <body>
@@ -969,6 +1012,17 @@ body :is(button,input,select,textarea):focus-visible{outline-color:var(--crm-glo
     <div class="contact-view-footer"><button class="btn primary" type="button" onclick="closeContactView()">Fechar</button></div>
   </section>
 </div>
+
+
+<aside class="crm-new-lead-notice" id="crmNewLeadNotice" aria-label="Novos leads" hidden>
+  <header class="crm-notice-header">
+    <div class="crm-notice-logo"><img src="cirandae-logo.svg" alt="Logo CIRANDAÊ"></div>
+    <div class="crm-notice-brand"><strong>CIRANDAÊ CRM</strong><small>Novas oportunidades</small></div>
+    <button class="icon-button crm-notice-close" type="button" aria-label="Fechar notificação" onclick="dismissCrmLeadNotice()"><svg width="16" height="16" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="m6 6 12 12M18 6 6 18"/></svg></button>
+  </header>
+  <div role="status" aria-live="polite"><div class="crm-notice-heading"><span class="crm-notice-pulse" aria-hidden="true"></span><h3 id="crmLeadNoticeTitle">Novo lead no funil!</h3></div><p id="crmLeadNoticeText"></p><ul id="crmLeadNoticeList" hidden></ul></div>
+  <footer><button type="button" class="btn ghost small" onclick="dismissCrmLeadNotice()">Depois</button><button type="button" class="btn primary" onclick="openCrmLeadNotice()">Ver funil <svg width="15" height="15" viewBox="0 0 24 24" stroke="currentColor" fill="none" stroke-width="2"><path d="M5 12h14m-6-6 6 6-6 6"/></svg></button></footer>
+</aside>
 
 <div class="toast-wrap" id="toastWrap" aria-live="polite"></div>
 <div id="authGate" style="display:flex;position:fixed;inset:0;z-index:1000;align-items:center;justify-content:center;background:rgba(5,7,5,.94);color:#eef1e9;font:13px Inter,Arial,sans-serif"><div style="width:min(450px,calc(100% - 36px));padding:30px;background:#121510;border:1px solid #394130;border-radius:18px"><strong style="font-size:20px;letter-spacing:.03em">Cirandaê CRM</strong><p style="color:#a5aba0">Conectando ao Supabase...</p></div></div>
@@ -1114,6 +1168,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.9.1-perfis-vinculados-20261121"></script>
+<script src="integration.js?v=1.10.0-preferencias-pessoais-20261121"></script>
 </body>
 </html>
