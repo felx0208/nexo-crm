@@ -1263,8 +1263,8 @@
   window.selectTimelineContact = function(id) { selectedTimelineContactId=id?Number(id):null; render(); };
 
   window.contactsPage = function () {
-    const filtered=(state.contacts||[]).filter(c=>{const q=(searchQuery||'').toLowerCase();const matches=!q||[c.name,c.company,c.email,c.phone,c.owner].some(v=>(v||'').toLowerCase().includes(q));return matches&&(contactFilter==='Todos'||c.status===contactFilter)});
-    const statuses=['Todos','Novo lead','Qualificado','Em negociação','Cliente','Inativo'];
+    const filtered=(state.contacts||[]).filter(c=>{const q=(searchQuery||'').toLowerCase();const matches=!q||[c.name,c.company,c.email,c.phone,c.owner].some(v=>(v||'').toLowerCase().includes(q));return matches&&(contactFilter==='Todos'||(contactFilter==='Decisores'?isDecisionContact(c):c.status===contactFilter))});
+    const statuses=['Todos','Decisores','Novo lead','Qualificado','Em negociação','Cliente','Inativo'];
     return `${pageHeader('RELACIONAMENTO','Contatos','Gerencie contatos salvos no banco de dados.',button('Importar CSV',"document.getElementById('csvFile').click()",false,'download')+button('Novo contato',"openModal('contact')",true,'plus'))}<input type="file" id="csvFile" class="hidden" accept=".csv,text/csv" onchange="importCSV(this)"><section class="card table-card"><div class="card-head"><div><div class="card-title">Base de contatos <span style="color:#858c92;font-weight:500">(${state.contacts.length})</span></div><div class="card-sub">Cadastros persistidos no Supabase.</div></div><button class="btn small ghost" onclick="exportCSV('contacts')">${ico('download',13)} Exportar CSV</button></div><div class="table-toolbar"><label class="search-box">${ico('search')}<input id="contactSearch" placeholder="Buscar nome, empresa ou e-mail..." value="${esc(searchQuery)}" oninput="searchContacts(this.value)"></label><select class="toolbar-select" onchange="setContactFilter(this.value)">${statuses.map(s=>`<option ${contactFilter===s?'selected':''}>${esc(s)}</option>`).join('')}</select>${savedViewsMarkup('contacts')}<div class="toolbar-spacer"></div></div><div class="table-scroll"><table><thead><tr><th>Contato</th><th>E-mail</th><th>Telefone</th><th>Status</th><th>Responsável</th><th></th></tr></thead><tbody>${filtered.map(contactRow).join('')||'<tr><td colspan="6"><div class="empty"><strong>Nenhum contato encontrado</strong>Cadastre um contato ou ajuste os filtros.</div></td></tr>'}</tbody></table></div><div class="table-foot"><span>Exibindo <b>${filtered.length}</b> contato(s) do banco.</span></div></section>`;
   };
   const CONTACT_TOUCH_TYPES = new Set(['call','meeting','email']);
@@ -1501,24 +1501,28 @@
       if(modalType==='deal'&&Number(editingId)===Number(d.id)&&document.getElementById('dealHistoryList')===el)el.innerHTML=historyListMarkup(d,rows);
     }catch(e){console.warn('Histórico adicional não carregado:',e.message);}
   }
-  function dealChannel(d){
-    const c=(state.contacts||[]).find(x=>Number(x.id)===Number(d.contact_id));
+  function contactChannel(c){
     const email=String(c?.email||'').trim(),phone=String(c?.phone||'').replace(/\D/g,'');
     if(/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))return 'email';
     if(phone.length>=8)return 'phone';
     return 'none';
   }
+  function dealChannel(d){return contactChannel((state.contacts||[]).find(x=>Number(x.id)===Number(d.contact_id)));}
   function normalizedDecisionName(value){
     return String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^\p{L}\p{N}]+/gu,' ').trim();
   }
-  function dealHasDecisionContact(d){
-    const c=(state.contacts||[]).find(x=>Number(x.id)===Number(d.contact_id));
-    if(!c||dealChannel(d)==='none')return false;
+  function contactHasDecisionName(c,d=null){
+    if(!c||contactChannel(c)==='none')return false;
     const contactName=normalizedDecisionName(c.name);
     if(!contactName||['nao informado','nao informada','sem contato','sem nome','contato nao informado','nome nao informado','a confirmar','desconhecido','desconhecida'].includes(contactName))return false;
-    const establishment=normalizedDecisionName(c.company_name||c.company||d.company||d.title);
-    const title=normalizedDecisionName(d.title);
+    const establishment=normalizedDecisionName(c.company_name||c.company||d?.company||d?.title);
+    const title=normalizedDecisionName(d?.title);
     return Boolean(establishment&&contactName!==establishment&&contactName!==title);
+  }
+  function dealHasDecisionContact(d){return contactHasDecisionName((state.contacts||[]).find(x=>Number(x.id)===Number(d.contact_id)),d);}
+  function isDecisionContact(c){
+    const linked=(state.deals||[]).filter(d=>Number(d.contact_id)===Number(c.id));
+    return linked.length?linked.some(d=>contactHasDecisionName(c,d)):contactHasDecisionName(c);
   }
   function matchesPipelineFilter(d,key){
     return key==='all'||(key==='decision'?dealHasDecisionContact(d):dealChannel(d)===key);
