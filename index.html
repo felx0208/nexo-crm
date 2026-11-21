@@ -570,6 +570,80 @@ body.nexo-sidebar-collapsed .side-bottom-nav .nav-item{justify-content:flex-star
 .negotiation-actions .btn{min-height:40px}
 @media(max-width:520px){.negotiation-dialog{padding:20px;border-radius:16px}.negotiation-actions .btn{flex:1}.stage-options-popover{width:205px}}
 
+
+/* CRM 1.7 — superfícies suaves, relatórios visuais, importação e histórico */
+body[data-theme="light"] .sidebar,body[data-theme="light"] .topbar{background:var(--side);border-color:var(--line2)}
+body[data-theme="light"] .card,body[data-theme="light"] .modal,body[data-theme="light"] .analytics-panel{background:var(--panel);border-color:var(--line);box-shadow:0 3px 12px #26405b09}
+body[data-theme="light"] .stage-column{background:var(--panel2);border-color:var(--line2)}
+body[data-theme="light"] .deal-card{background:var(--panel);border-color:var(--line);box-shadow:0 2px 5px #26405b0d}
+body[data-theme="light"] .stage-head{background:color-mix(in srgb,var(--panel2) 80%,var(--side));border-radius:12px 12px 0 0}
+body[data-theme="light"] .table-card thead,body[data-theme="light"] thead{background:var(--panel2)}
+body[data-theme="light"] th,body[data-theme="light"] td{color:var(--text)}
+body[data-theme="light"] tbody tr:hover{background:var(--soft)}
+body[data-theme="light"] .search-global,body[data-theme="light"] .search-box,body[data-theme="light"] input,body[data-theme="light"] select,body[data-theme="light"] textarea{background:var(--panel2);color:var(--text);border-color:var(--line2)}
+body[data-theme="light"] .auth-panel{background:var(--panel);color:var(--text)}
+body[data-theme="light"] .auth-field input{background:var(--panel2);color:var(--text)}
+body[data-theme="light"] .stat-icon,body[data-theme="light"] .tiny-avatar{color:var(--accent)}
+body[data-theme="light"] .btn.primary{background:var(--accent);color:var(--accent-contrast)!important;border-color:var(--accent)}
+body[data-theme="light"] .negotiation-input-wrap{background:var(--panel2)}
+body[data-theme="light"] .stage-action-art-delete{color:#a63b46}
+.deal-card{transition:box-shadow .16s,transform .16s,border-color .16s}
+.deal-card:hover{transform:translateY(-1px);box-shadow:0 5px 16px #00132916}
+.deal-history-chip{display:flex;align-items:center;gap:5px;color:var(--muted);font-size:10px;line-height:1.4;margin-top:7px}
+.deal-history-chip svg{flex:none}
+.lead-history{padding:16px;background:var(--panel2);border:1px solid var(--line);border-radius:13px;margin:7px 0 0}
+.lead-history-heading{display:flex;align-items:center;gap:8px;color:var(--text);padding-bottom:13px;font-size:13px}
+.lead-history-heading svg{color:var(--accent)}
+.lead-history-list{display:flex;flex-direction:column;gap:9px;max-height:300px;overflow:auto}
+.lead-history-entry{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;padding:12px;border-radius:9px;background:var(--panel);border:1px solid var(--line)}
+.lead-history-entry time{font-size:10px;color:var(--muted);font-weight:600}
+.lead-history-entry strong{font-size:12px;line-height:1.5}
+.lead-history-entry p{font-size:12px;line-height:1.55;margin:4px 0 0;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--muted)}
+.lead-history-compose{display:grid;grid-template-columns:1fr;gap:7px;margin-top:15px;padding-top:13px;border-top:1px solid var(--line)}
+.lead-history-compose label{font-weight:650;font-size:11px;color:var(--text)}
+.lead-history-compose input,.lead-history-compose select,.lead-history-compose textarea{width:100%;box-sizing:border-box;border:1px solid var(--line2);border-radius:8px;background:var(--panel);color:var(--text);padding:10px;font:inherit}
+.lead-history-compose textarea{min-height:85px;resize:vertical}
+.lead-history-compose small{color:var(--muted);font-size:10px;line-height:1.5}
+.report-visual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:15px;margin:15px 0 18px}
+.report-visual{padding:20px;min-width:0}
+.report-visual h3{margin:0;font-size:14px;font-weight:750}
+.report-visual>p{font-size:11px;color:var(--muted);margin:5px 0 17px}
+.report-bar-line{display:grid;grid-template-columns:minmax(82px,120px) minmax(20px,1fr) 29px;align-items:center;gap:12px;margin:12px 0;font-size:11px}
+.report-bar-line>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.report-bar-line b{text-align:right;font-size:12px}
+.report-bar-track{height:11px;background:var(--panel2);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.report-bar-track i{display:block;height:100%;border-radius:4px;background:#568ec4}
+.report-donut-wrap{display:flex;gap:24px;align-items:center;justify-content:center;flex-wrap:wrap;min-height:145px}
+.report-donut{display:grid;place-items:center;width:145px;height:145px;border-radius:50%;flex:none}
+.report-donut>div{width:107px;height:107px;display:flex;flex-direction:column;align-items:center;justify-content:center;background:var(--panel);border-radius:50%}
+.report-donut strong{font-size:29px;line-height:1.3}
+.report-donut small{font-size:9px;letter-spacing:1px;color:var(--muted)}
+.report-donut-legend{display:grid;gap:11px;min-width:112px}
+.report-donut-legend span{display:flex;gap:8px;align-items:center;font-size:12px}
+.report-donut-legend i{width:9px;height:9px;border-radius:3px;flex:none}
+.report-donut-legend b{margin-left:auto}
+.report-month-chart{height:163px;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.report-month{min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;justify-content:flex-end}
+.report-month>b{font-size:9px;font-weight:650;text-align:center;overflow:hidden;text-overflow:ellipsis;width:100%;white-space:nowrap}
+.report-month>span{font-size:10px;color:var(--muted)}
+.report-month-track{height:112px;width:100%;max-width:35px;display:flex;align-items:flex-end;border-bottom:1px solid var(--line2);background:var(--panel2);border-radius:4px 4px 0 0}
+.report-month-track i{display:block;min-height:0;width:100%;background:#568ec4;border-radius:4px 4px 0 0}
+.import-steps{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:18px 0}
+.import-steps>div{padding:16px;border:1px solid var(--line);background:var(--panel2);border-radius:12px}
+.import-steps>div>b{display:block;margin-bottom:10px;color:var(--accent);font-size:21px;letter-spacing:-.04em}
+.import-steps>div>strong{font-size:13px;display:block}
+.import-steps p,.import-fields p{font-size:11px;color:var(--muted);line-height:1.6;margin:8px 0 12px}
+.import-steps .btn{margin:3px 0}
+.import-fields{border:1px solid var(--line);padding:15px;border-radius:12px;margin:15px 0}
+.import-fields>strong{font-size:12px}
+.import-fields>div{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}
+.import-fields span{background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:5px 8px;font-size:11px}
+.import-result{padding:16px;background:var(--panel2);border:1px solid var(--line);border-radius:12px}
+.import-result>p{font-size:11px;color:var(--muted);margin:7px 0;overflow-wrap:anywhere}
+.import-result .table-scroll{max-height:340px;overflow:auto;margin:12px 0}
+.import-result .import-issue{color:var(--muted)}
+@media(max-width:760px){.import-steps,.report-visual-grid{grid-template-columns:1fr}.report-bar-line{grid-template-columns:minmax(82px,110px) minmax(0,1fr) 25px}.lead-history-entry{grid-template-columns:1fr;gap:5px}.report-visual{padding:15px}}
+
 </style>
 </head>
 <body>
@@ -756,7 +830,8 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="supabase-config.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.6.1-menu-horizontal-20261117"></script>
+<script src="integration.js?v=1.7.0-importacao-analise-historico-20261121"></script>
 </body>
 </html>
