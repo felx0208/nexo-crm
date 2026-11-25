@@ -1046,6 +1046,129 @@ body .sidebar .brand-sub{font-size:9px;letter-spacing:.07em}
 .crm-notice-logo img,.crm-help-mark img,.appearance-preview-mark img{object-fit:contain;image-rendering:auto}
 body .topbar .top-action svg,body .sidebar .help-icon svg{stroke-linecap:round;stroke-linejoin:round;shape-rendering:geometricPrecision}
 
+
+/* CRM 1.12 — navegação fixa exclusivamente para telefones; desktop intacto */
+.crm-mobile-bottom-nav,.crm-mobile-more-backdrop,.crm-mobile-more-sheet,.crm-mobile-search-panel,.crm-mobile-top-brand,.crm-mobile-search-toggle{display:none}
+.crm-mobile-more-backdrop[hidden],.crm-mobile-more-sheet[hidden],.crm-mobile-search-panel[hidden],.crm-mobile-unread-dot[hidden],.crm-mobile-more-link[hidden],.crm-mobile-support-count[hidden]{display:none!important}
+@media(max-width:760px){
+ :root{--crm-mobile-nav-height:72px;--crm-mobile-safe-bottom:env(safe-area-inset-bottom,0px)}
+ html{width:100%;overflow-x:hidden;scroll-padding-top:68px}
+ body{width:100%;min-width:0;overflow-x:clip;-webkit-text-size-adjust:100%}
+ .app{display:block!important;min-height:100dvh!important}
+ body .sidebar,body .mobile-overlay,body .crm-mobile-navigation,body .topbar .crm-mobile-navigation{display:none!important}
+ body .main{display:block!important;min-width:0;width:100%}
+ body .topbar{height:61px;min-height:61px;gap:9px;padding:0 15px;position:sticky;top:0;z-index:50;background:var(--side);border-bottom:1px solid var(--line)}
+ body .topbar .crumb,body .topbar .search-global,body .topbar .top-action[aria-label="Notificações"],body .topbar #cirandaeLogoutButton{display:none!important}
+ body .topbar .crm-mobile-top-brand{display:flex;align-items:center;gap:9px;min-width:0}
+ body .crm-mobile-top-brand img{width:36px;height:36px;object-fit:contain;background:#F8F8F6;border-radius:10px;padding:1px}
+ body .crm-mobile-top-brand>div{display:flex;flex-direction:column;min-width:0}
+ body .crm-mobile-top-brand strong{font-size:12px;line-height:1.18;font-weight:900;letter-spacing:.035em;color:var(--text)}
+ body .crm-mobile-top-brand small{font-size:10px;color:var(--muted);font-weight:750}
+ body .topbar .topbar-spacer{flex:1}
+ body .topbar .crm-mobile-search-toggle{display:grid;place-items:center;flex:none;width:38px;height:38px;border:1px solid var(--line2);border-radius:11px;color:var(--text);background:var(--panel)}
+ body .crm-mobile-search-toggle svg{width:19px;height:19px}
+ body .topbar .top-action[aria-label="Ajuda"]{flex:none;width:38px;height:38px;border-radius:11px}
+ body .main-inner{min-width:0;width:100%;max-width:none!important;padding:21px 14px calc(var(--crm-mobile-nav-height) + var(--crm-mobile-safe-bottom) + 36px)!important;margin:0 auto}
+ body .page-heading{gap:14px;margin-bottom:19px}
+ body .page-heading h1{font-size:25px;line-height:1.2;letter-spacing:-.035em}
+ body .page-heading p{font-size:12px;line-height:1.5}
+ body .heading-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+ body .heading-actions .btn{min-width:0;min-height:42px;white-space:normal;line-height:1.2;padding:9px 7px}
+ body .heading-actions .btn:last-child:nth-child(odd){grid-column:1/-1}
+ body .stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+ body .stats>.stat-card{padding:13px 12px;min-width:0}
+ body .stats .stat-value{font-size:24px}
+ body .stats .stat-note{white-space:normal}
+ body .dashboard-grid,body .bottom-grid,body .report-grid,body .report-visual-grid,body .crm-help-layout,body .settings-layout{grid-template-columns:minmax(0,1fr)!important}
+ body .card,body .stat-card,body .page-heading,body .table-scroll{min-width:0}
+ body .card-head{gap:12px;flex-wrap:wrap}
+ body .table-toolbar,body .pipeline-toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:stretch}
+ body .table-toolbar .search-box,body .pipeline-toolbar .search-box{flex:1 1 100%;min-width:0;max-width:none;width:100%}
+ body .table-toolbar .toolbar-select{min-height:43px;max-width:100%}
+ body .table-toolbar .toolbar-spacer{display:none}
+ body .table-scroll{width:100%;max-width:100%;overflow-x:auto;-webkit-overflow-scrolling:touch}
+ body .table-scroll table{min-width:620px}
+ body .settings-nav{display:flex;overflow-x:auto;gap:5px;scrollbar-width:thin}
+ body .settings-tab{min-height:42px;flex:0 0 auto}
+ body .form-grid{grid-template-columns:minmax(0,1fr)}
+ body .form-field input,body .form-field textarea,body .form-field select,body .search-box input,body .crm-mobile-search-field input{font-size:16px}
+ body .pipeline-channel-toggle{display:flex;flex-wrap:wrap;gap:6px}
+ body .pipeline-channel-toggle button{min-height:36px;flex:0 1 auto;padding:7px 9px}
+ body .board-layout-toolbar{flex-wrap:wrap;gap:9px}
+ body .pipeline-board{overflow-x:auto!important;overflow-y:hidden!important;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+ body .pipeline-board.board-compact{grid-auto-columns:min(78vw,295px)!important}
+ body .pipeline-board.board-classic{grid-auto-columns:min(80vw,300px)!important}
+ body .pipeline-board.board-compact .stage-column{height:clamp(310px,calc(100dvh - 310px),630px);min-height:310px}
+ body .pipeline-board .crm-lead-card{max-width:100%}
+ body .crm-mobile-bottom-nav{
+   position:fixed;bottom:0;left:0;right:0;z-index:450;display:grid;
+   grid-template-columns:repeat(5,minmax(0,1fr));gap:2px;
+   height:calc(var(--crm-mobile-nav-height) + var(--crm-mobile-safe-bottom));
+   padding:7px max(8px,env(safe-area-inset-right,0px)) calc(7px + var(--crm-mobile-safe-bottom)) max(8px,env(safe-area-inset-left,0px));
+   border-top:1px solid color-mix(in srgb,var(--accent) 22%,var(--line2));
+   background:radial-gradient(ellipse 270px 85px at 50% 0%,color-mix(in srgb,var(--crm-glow) 12%,transparent),transparent 90%),var(--side);
+   box-shadow:0 -8px 30px #0003;backdrop-filter:blur(18px);
+   overflow:visible;touch-action:pan-y;
+ }
+ body .crm-mobile-tab{position:relative;min-width:0;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;border:0;border-radius:12px;background:transparent;color:var(--muted);font-size:10px!important;font-weight:850!important;white-space:nowrap;padding:3px 0}
+ body .crm-mobile-tab svg{width:23px;height:23px;flex:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round}
+ body .crm-mobile-tab[data-page="whatsapp"] svg{color:#63BE8A}
+ body .crm-mobile-tab.active{background:var(--crm-tint);color:var(--crm-accent-ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--accent) 25%,transparent)}
+ body .crm-mobile-tab.active:before{position:absolute;content:"";top:-8px;left:30%;right:30%;height:3px;border-radius:0 0 4px 4px;background:var(--crm-glow);box-shadow:0 0 9px var(--crm-glow)}
+ body .crm-mobile-tab.active svg{color:var(--crm-accent-ink);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--crm-glow) 35%,transparent))}
+ body .crm-mobile-tab[data-page="pipeline"] svg{color:var(--crm-glow);filter:drop-shadow(0 0 4px color-mix(in srgb,var(--crm-glow) 46%,transparent))}
+ body .crm-mobile-more-backdrop{display:block;position:fixed;inset:0;z-index:425;background:#0009;backdrop-filter:blur(3px)}
+ body .crm-mobile-more-sheet{
+   position:fixed;left:8px;right:8px;bottom:calc(var(--crm-mobile-nav-height) + var(--crm-mobile-safe-bottom) + 6px);z-index:440;
+   display:block;max-height:calc(100dvh - var(--crm-mobile-nav-height) - var(--crm-mobile-safe-bottom) - 22px);
+   padding:8px 14px 16px;border:1px solid color-mix(in srgb,var(--accent) 28%,var(--line2));
+   border-radius:20px;background:var(--panel);color:var(--text);box-shadow:0 18px 48px #0008;overflow-y:auto;
+ }
+ body .crm-mobile-sheet-handle{width:42px;height:4px;border-radius:6px;background:var(--line2);margin:3px auto 13px}
+ body .crm-mobile-more-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 3px 13px;border-bottom:1px solid var(--line)}
+ body .crm-mobile-more-heading>div{display:flex;flex-direction:column;gap:2px}
+ body .crm-mobile-more-heading strong{font-size:17px;font-weight:900}
+ body .crm-mobile-more-heading small{font-size:11px;color:var(--muted)}
+ body .crm-mobile-sheet-close,.crm-mobile-search-close{display:grid;place-items:center;width:34px;height:34px;flex:none;border-radius:11px;border:1px solid var(--line2);background:var(--panel2);color:var(--text)}
+ body .crm-mobile-more-items{display:grid;gap:5px;padding:11px 0}
+ body .crm-mobile-more-link{display:flex;align-items:center;gap:12px;width:100%;min-height:61px;padding:9px 11px;border:1px solid transparent;border-radius:13px;background:transparent;color:var(--text);text-align:left}
+ body .crm-mobile-more-link.active{border-color:color-mix(in srgb,var(--accent) 27%,var(--line));background:var(--crm-tint)}
+ body .crm-mobile-more-link svg{width:23px;height:23px;flex:none;stroke-linecap:round;stroke-linejoin:round;color:var(--crm-accent-ink)}
+ body .crm-mobile-more-link>span{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+ body .crm-mobile-more-link strong{font-size:13px;font-weight:850}
+ body .crm-mobile-more-link small{font-size:11px;color:var(--muted)}
+ body .crm-mobile-support-count{min-width:23px;height:23px;padding:2px 6px;border-radius:8px;text-align:center;background:var(--crm-tint);color:var(--crm-accent-ink)}
+ body .crm-mobile-unread-dot{position:absolute;right:15px;top:4px;width:7px;height:7px;border-radius:50%;background:var(--crm-glow);box-shadow:0 0 7px var(--crm-glow)}
+ body .crm-mobile-signout{display:flex;align-items:center;justify-content:center;gap:9px;width:100%;min-height:43px;border:1px solid var(--line2);border-radius:12px;background:var(--panel2);color:var(--muted);font-size:12px;font-weight:850}
+ body .crm-mobile-signout svg{width:18px;height:18px}
+ body .crm-mobile-search-panel{position:fixed;display:flex;align-items:center;gap:10px;top:0;left:0;right:0;min-height:67px;padding:10px 14px;z-index:480;background:var(--side);border-bottom:1px solid var(--line2);box-shadow:0 8px 24px #0004}
+ body .crm-mobile-search-field{display:flex;align-items:center;gap:8px;min-width:0;flex:1;border:1px solid var(--line2);border-radius:12px;background:var(--panel2);padding:0 12px;min-height:43px}
+ body .crm-mobile-search-field svg{width:19px;height:19px;flex:none;color:var(--crm-accent-ink)}
+ body .crm-mobile-search-field input{width:100%;min-width:0;border:none;outline:none;background:transparent;color:var(--text)}
+ body .crm-mobile-search-field input::-webkit-search-cancel-button{display:none}
+ body .toast-wrap{bottom:calc(var(--crm-mobile-nav-height) + var(--crm-mobile-safe-bottom) + 12px);right:12px;left:12px;z-index:470}
+ body .toast-wrap>*{max-width:100%}
+ body .crm-new-lead-notice{bottom:calc(var(--crm-mobile-nav-height) + var(--crm-mobile-safe-bottom) + 12px);right:12px;left:12px;width:auto;max-height:calc(100dvh - 160px);overflow-y:auto}
+ body .crm-support-notice{bottom:auto;top:68px}
+ body .modal-backdrop.open,body .negotiation-backdrop.open,body .contact-view-backdrop.open{z-index:560;padding:10px;align-items:center}
+ body .modal,body .negotiation-dialog,body .contact-view-dialog{width:100%;max-width:100%;max-height:calc(100dvh - 28px);overflow-y:auto}
+ body :is(.modal-body,.contact-view-dialog,.negotiation-dialog) :is(input,select,textarea){max-width:100%}
+ body .crm-password-panel{max-width:100%}
+ body .form-grid>*{min-width:0}
+ body .crm-help-layout .card{width:100%}
+}
+@media(max-width:360px){
+ body .crm-mobile-tab{font-size:9px!important;letter-spacing:-.025em}
+ body .crm-mobile-tab svg{width:21px;height:21px}
+ body .crm-mobile-top-brand strong{font-size:11px}
+ body .crm-mobile-top-brand small{font-size:9px}
+ body .main-inner{padding-left:10px!important;padding-right:10px!important}
+ body .pipeline-board.board-compact{grid-auto-columns:min(82vw,278px)!important}
+}
+@media(min-width:761px){
+ .crm-mobile-bottom-nav,.crm-mobile-more-backdrop,.crm-mobile-more-sheet,.crm-mobile-search-panel,.crm-mobile-top-brand,.crm-mobile-search-toggle{display:none!important}
+}
+
 </style>
 </head>
 <body>
@@ -1068,10 +1191,35 @@ body .topbar .top-action svg,body .sidebar .help-icon svg{stroke-linecap:round;s
       <div class="profile"></div></div>
   </aside>
   <main class="main">
-    <header class="topbar"><button class="crm-mobile-navigation btn ghost small" type="button" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar(true)">Menu</button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="navigate('help')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button></header>
+    <header class="topbar"><div class="crm-mobile-top-brand"><img src="cirandae-logo.svg" alt=""><div><strong>CIRANDAÊ</strong><small>Comercial</small></div></div><button class="crm-mobile-navigation btn ghost small" type="button" aria-controls="sidebar" aria-expanded="false" onclick="toggleSidebar(true)">Menu</button><div class="crumb" id="breadcrumb">Comercial <span style="color:#5f666c;margin:0 7px">/</span> <b>Visão geral</b></div><div class="topbar-spacer"></div><button type="button" class="crm-mobile-search-toggle" aria-label="Abrir busca" aria-controls="crmMobileSearchPanel" aria-expanded="false" onclick="toggleCrmMobileSearch(true)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.4"/><path d="m15.5 15.5 5 5"/></svg></button><label class="search-global" title="Buscar em todo o CRM"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.8"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 4.5 4.5"/></svg><input id="globalSearch" placeholder="Buscar em tudo..." oninput="globalSearch(this.value)" aria-label="Buscar em todo o CRM"><kbd>⌘ K</kbd></label><button class="top-action" aria-label="Notificações" onclick="showToast('Você está em dia. Nenhuma notificação nova.')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg><span class="notification-dot"></span></button><button class="top-action" aria-label="Ajuda" onclick="navigate('help')"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.7"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.3 1.8c-1.1 1-1.8 1.3-1.8 2.7M12 17h.01"/></svg></button></header>
     <div class="main-inner" id="mainContent"></div>
   </main>
 </div>
+
+<nav class="crm-mobile-bottom-nav" id="crmMobileBottomNav" aria-label="Navegação inferior">
+  <button type="button" class="crm-mobile-tab" data-page="dashboard" aria-label="Visão geral" onclick="navigate('dashboard')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><rect class="nav-shape-fill" x="4.25" y="4.25" width="10" height="10" rx="2.8"/><rect x="17.75" y="4.25" width="10" height="10" rx="2.8"/><rect x="4.25" y="17.75" width="10" height="10" rx="2.8"/><rect class="nav-shape-fill" x="17.75" y="17.75" width="10" height="10" rx="2.8"/><path d="M7.5 9.25H11m-1.75-1.75V11M21 22.75h3.5"/></svg><span>Início</span></button>
+  <button type="button" class="crm-mobile-tab" data-page="contacts" aria-label="Contatos" onclick="navigate('contacts')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><rect class="nav-shape-fill" x="4" y="5" width="24" height="22" rx="5"/><circle cx="12" cy="12.5" r="3.2"/><path d="M6.8 21.5c.5-2.9 2.4-4.4 5.2-4.4s4.7 1.5 5.2 4.4M21 11h3M21 16h3M21 21h3"/></svg><span>Contatos</span></button>
+  <button type="button" class="crm-mobile-tab" data-page="pipeline" aria-label="Funil de vendas" onclick="navigate('pipeline')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><rect class="nav-shape-fill" x="4" y="4.5" width="6" height="13" rx="2"/><rect x="13" y="4.5" width="6" height="18" rx="2"/><rect class="nav-shape-fill" x="22" y="4.5" width="6" height="23" rx="2"/><path d="M6 21h2m7 5h2"/><path d="m23.55 13.5 1.1 1.25 1.8-2.25" stroke-width="1.5"/></svg><span>Funil</span></button>
+  <button type="button" class="crm-mobile-tab" data-page="whatsapp" aria-label="WhatsApp" onclick="navigate('whatsapp')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><path class="nav-shape-fill" d="M16 3.8A11.7 11.7 0 0 0 5.9 21.4L4.3 27.8l6.5-1.8A11.7 11.7 0 1 0 16 3.8Z"/><g transform="translate(16 15.1) scale(.62) translate(-12.5 -12.5)" stroke-width="2.7"><path d="M22 16.9v3a2 2 0 0 1-2.2 2A19.8 19.8 0 0 1 3.1 5.2 2 2 0 0 1 5.1 3h3a2 2 0 0 1 2 1.7l.5 2.5a2 2 0 0 1-.6 1.9l-1.3 1.3a16 16 0 0 0 5.8 5.8l1.3-1.3a2 2 0 0 1 1.9-.6l2.5.5a2 2 0 0 1 1.8 2.1Z"/></g></svg><span>WhatsApp</span></button>
+  <button type="button" class="crm-mobile-tab crm-mobile-more-tab" id="crmMobileMoreToggle" aria-controls="crmMobileMoreSheet" aria-expanded="false" aria-label="Mais opções" onclick="toggleCrmMobileMore()"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="6.5" cy="16" r="2"/><circle cx="16" cy="16" r="2"/><circle cx="25.5" cy="16" r="2"/></svg><span>Mais</span><i class="crm-mobile-unread-dot" id="crmMobileMoreBadge" hidden></i></button>
+</nav>
+<div class="crm-mobile-more-backdrop" id="crmMobileMoreBackdrop" hidden onclick="toggleCrmMobileMore(false)"></div>
+<section class="crm-mobile-more-sheet" id="crmMobileMoreSheet" role="dialog" aria-modal="true" aria-label="Outras áreas do CRM" hidden>
+  <div class="crm-mobile-sheet-handle" aria-hidden="true"></div>
+  <header class="crm-mobile-more-heading"><div><strong>Outras áreas</strong><small>Ferramentas e preferências</small></div><button type="button" class="crm-mobile-sheet-close" aria-label="Fechar menu" onclick="toggleCrmMobileMore(false)">✕</button></header>
+  <div class="crm-mobile-more-items">
+    <button type="button" class="crm-mobile-more-link"  data-page="reports" onclick="navigate('reports')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><rect class="nav-shape-fill" x="4" y="4" width="24" height="24" rx="5"/><path d="M8.5 23.5h15M10 20.5v-4M16 20.5v-7M22 20.5v-10"/><path d="m9 11.5 5-4.5 4 2 5-3" stroke-width="1.6"/></svg><span><strong>Gestão e análise</strong><small>Indicadores e relatórios</small></span></button>
+    <button type="button" class="crm-mobile-more-link"  data-page="settings" onclick="navigate('settings')"><svg class="crm-nav-symbol" viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" shape-rendering="geometricPrecision" aria-hidden="true"><rect class="nav-shape-fill" x="4" y="4" width="24" height="24" rx="6"/><path d="M10 8.5v15m6-15v15m6-15v15"/><rect x="7.75" y="11.5" width="4.5" height="5" rx="1.7" fill="var(--side)"/><rect x="13.75" y="17.5" width="4.5" height="5" rx="1.7" fill="var(--side)"/><rect x="19.75" y="9.5" width="4.5" height="5" rx="1.7" fill="var(--side)"/></svg><span><strong>Configurações</strong><small>Aparência, perfil e senha</small></span></button>
+    <button type="button" class="crm-mobile-more-link"  data-page="help" onclick="navigate('help')"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M16 4.2A11.5 11.5 0 0 0 6.1 21.5L4.6 27.4l5.9-1.6A11.5 11.5 0 1 0 16 4.2Z"/><path d="M12.5 12.1a3.6 3.6 0 1 1 5.5 3c-1.4.85-2 1.55-2 2.7"/><circle cx="16" cy="21.2" r="1.1" fill="currentColor" stroke="none"/></svg><span><strong>Central de ajuda</strong><small>Dúvidas e sugestões</small></span></button>
+    <button type="button" class="crm-mobile-more-link" id="crmMobileSupportLink" hidden data-page="support-inbox" onclick="navigate('support-inbox')"><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><rect x="4" y="8" width="24" height="19" rx="3.5"/><path d="m4.5 13 6 6h11l6-6M12.5 23h7M12.5 4.5h7M16 1.8v5.4"/></svg><span><strong>Pedidos de ajuda</strong><small>Somente o administrador</small></span><b class="crm-mobile-support-count" id="crmMobileSupportCount" hidden>0</b></button>
+  </div>
+  <button type="button" class="crm-mobile-signout" onclick="nexoLogout()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h4M14 7l5 5-5 5M9 12h10"/></svg> Sair da conta</button>
+</section>
+<div class="crm-mobile-search-panel" id="crmMobileSearchPanel" role="search" hidden>
+  <button type="button" class="crm-mobile-search-close" aria-label="Fechar busca" onclick="toggleCrmMobileSearch(false)">✕</button>
+  <label class="crm-mobile-search-field"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="10.5" cy="10.5" r="6.4"/><path d="m15.5 15.5 5 5"/></svg><input id="crmMobileSearchInput" type="search" autocomplete="off" placeholder="Buscar contatos e leads" oninput="globalSearch(this.value)" aria-label="Buscar contatos e leads"></label>
+</div>
+
 <div class="modal-backdrop" id="modalBackdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle" onclick="backdropClose(event)"><div class="modal"><div class="modal-head"><div><h2 id="modalTitle">Novo registro</h2><p id="modalSubtitle">Preencha as informações abaixo.</p></div><button class="icon-button" aria-label="Fechar" onclick="closeModal()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" width="18" height="18"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div><form id="modalForm" onsubmit="submitModal(event)"><div class="modal-body" id="modalBody"></div><div class="modal-foot"><button class="btn ghost" type="button" onclick="closeModal()">Cancelar</button><button class="btn primary" id="modalSubmit" type="submit">Salvar registro</button></div></form></div></div>
 
 <div id="negotiationValueModal" class="negotiation-backdrop" role="dialog" aria-modal="true" aria-hidden="true" aria-labelledby="negotiationValueTitle" onclick="if(event.target===this)cancelNegotiationValue()">
@@ -1259,6 +1407,6 @@ document.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLower
 <script src="supabase-config.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <!-- Cirandaê CRM · identidade 1.5.2 -->
-<script src="integration.js?v=1.11.4-decisores-contatos-20261121"></script>
+<script src="integration.js?v=1.12.0-mobile-nav-fixa-20261125"></script>
 </body>
 </html>
